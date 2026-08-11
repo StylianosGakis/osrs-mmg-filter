@@ -1,0 +1,1136 @@
+/* OSRS Money Making Filter Plugin Stylesheet */
+
+/* ==========================================================================
+   THEME VARIABLES
+   ========================================================================== */
+body.wgl-theme-light,
+body.wgl-lightmode,
+body:not(.wgl-theme-dark):not(.wgl-theme-browntown):not(.wgl-darkmode):not(.wgl-browntownmode),
+.osrs-filter-panel[data-theme="light"],
+.osrs-filter-panel:not([data-theme]) {
+  --panel-bg: #d0c1a4;
+  --panel-text: #111111;
+  --panel-border: #94866d;
+  --panel-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  
+  --divider-color: #bfae92;
+  
+  --control-bg: #bfae92;
+  --control-border: #94866d;
+  
+  --pill-text: #222222;
+  
+  --control-active-bg: #fbf9f5;
+  --control-active-text: #111111;
+  --control-active-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  
+  --toggle-bg: #e5dac6;
+  --toggle-border: #bfae92;
+  --toggle-text: #222222;
+  
+  --toggle-active-bg: #c62828;
+  --toggle-active-border: #b71c1c;
+  --toggle-active-text: #ffffff;
+  
+  --input-bg: #fbf9f5;
+  --input-text: #111111;
+  --input-border: #94866d;
+  
+  --count-bg: #bfae92;
+  --count-border: #a8977b;
+  --count-text: #111111;
+  
+  --badge-bg: #e5dac6;
+  --badge-border: #bfae92;
+  --badge-text: #222222;
+  
+  --badge-excluded-bg: rgba(211, 47, 47, 0.12);
+  --badge-excluded-border: rgba(211, 47, 47, 0.4);
+  --badge-excluded-text: #8c1d1d;
+  
+  --btn-primary-bg: #605443;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: #3c352a;
+  --btn-primary-hover-bg: #4a3e30;
+  
+  --btn-secondary-bg: #bfae92;
+  --btn-secondary-text: #111111;
+  --btn-secondary-border: #94866d;
+  --btn-secondary-hover-bg: #b2a083;
+  --btn-secondary-hover-border: #94866d;
+  
+  --status-ok: #1b5e20;
+  --status-error: #b71c1c;
+  
+  --row-hide-bg: #c4b496;
+  --row-hide-text: #222222;
+  --row-hide-border: #94866d;
+
+  --excluded-section-border: rgba(0, 0, 0, 0.12);
+
+  --chip-volume-norm-bg: #e0f7fa;
+  --chip-volume-norm-text: #006064;
+  --chip-volume-norm-border: #80deea;
+  
+  --chip-volume-low-bg: #fff3e0;
+  --chip-volume-low-text: #e65100;
+  --chip-volume-low-border: #ffcc80;
+
+  --chip-roi-high-bg: #e8f5e9;
+  --chip-roi-high-text: #2e7d32;
+  --chip-roi-high-border: #a5d6a7;
+  
+  --chip-roi-mod-bg: #fff8e1;
+  --chip-roi-mod-text: #b78103;
+  --chip-roi-mod-border: #ffe082;
+  
+  --chip-roi-low-bg: #ffebee;
+  --chip-roi-low-text: #c62828;
+  --chip-roi-low-border: #ef9a9a;
+  
+  --chip-roi-zero-bg: #e0f2f1;
+  --chip-roi-zero-text: #00695c;
+  --chip-roi-zero-border: #80cbc4;
+  
+  --chip-xp-bg: #e8f8f5;
+  --chip-xp-text: #117a65;
+  --chip-xp-border: #a3e4d7;
+  
+  --chip-budget-zero-bg: #e0f2f1;
+  --chip-budget-zero-text: #00695c;
+  --chip-budget-zero-border: #80cbc4;
+  
+  --chip-budget-low-bg: #fef9e7;
+  --chip-budget-low-text: #7d6608;
+  --chip-budget-low-border: #f9e79f;
+  
+  --chip-budget-mod-bg: #fef5e7;
+  --chip-budget-mod-text: #9c640c;
+  --chip-budget-mod-border: #f5cba7;
+  
+  --chip-budget-high-bg: #f4ecf7;
+  --chip-budget-high-text: #6c3483;
+  --chip-budget-high-border: #d7bde2;
+  
+  --chip-budget-heavy-bg: #ebedef;
+  --chip-budget-heavy-text: #283747;
+  --chip-budget-heavy-border: #aeb6bf;
+  
+  --loading-bg: rgba(255, 193, 7, 0.15);
+  --loading-text: #b78103;
+  --loading-border: rgba(255, 193, 7, 0.35);
+  
+  --loading-synced-bg: rgba(46, 125, 50, 0.15);
+  --loading-synced-text: #2e7d32;
+  --loading-synced-border: rgba(46, 125, 50, 0.35);
+  
+  --loading-error-bg: rgba(211, 47, 47, 0.15);
+  --loading-error-text: #c62828;
+  --loading-error-border: rgba(211, 47, 47, 0.35);
+  
+  --skeleton-bg: rgba(0, 0, 0, 0.05);
+  --skeleton-text: var(--subtle-color, #666666);
+  --skeleton-border: rgba(0, 0, 0, 0.2);
+}
+
+body.wgl-theme-dark,
+body.wgl-darkmode,
+.osrs-filter-panel[data-theme="dark"] {
+  --panel-bg: #243044;
+  --panel-text: #e1e7f0;
+  --panel-border: #364763;
+  --panel-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  
+  --divider-color: #364763;
+  
+  --control-bg: #17202e;
+  --control-border: #364763;
+  
+  --pill-text: #a0aec0;
+  
+  --control-active-bg: #2d3748;
+  --control-active-text: #ffffff;
+  --control-active-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  
+  --toggle-bg: #17202e;
+  --toggle-border: #364763;
+  --toggle-text: #e1e7f0;
+  
+  --toggle-active-bg: #d32f2f;
+  --toggle-active-border: #e53935;
+  --toggle-active-text: #ffffff;
+  
+  --input-bg: #17202e;
+  --input-text: #ffffff;
+  --input-border: #3c506f;
+  
+  --count-bg: #1a2333;
+  --count-border: #364763;
+  --count-text: #e1e7f0;
+  
+  --badge-bg: #1e293b;
+  --badge-border: #3b4d6a;
+  --badge-text: #e1e7f0;
+  
+  --badge-excluded-bg: rgba(244, 67, 54, 0.18);
+  --badge-excluded-border: rgba(244, 67, 54, 0.45);
+  --badge-excluded-text: #ff8a80;
+  
+  --btn-primary-bg: #3470ad;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: #245588;
+  --btn-primary-hover-bg: #4180c4;
+  
+  --btn-secondary-bg: #1b2536;
+  --btn-secondary-text: #e1e7f0;
+  --btn-secondary-border: #364763;
+  --btn-secondary-hover-bg: #27354c;
+  --btn-secondary-hover-border: #485e82;
+  
+  --status-ok: #81c784;
+  --status-error: #b71c1c;
+  
+  --row-hide-bg: rgba(255, 255, 255, 0.1);
+  --row-hide-text: #e1e7f0;
+  --row-hide-border: #364763;
+
+  --excluded-section-border: rgba(255, 255, 255, 0.12);
+
+  --chip-volume-norm-bg: rgba(0, 188, 212, 0.2);
+  --chip-volume-norm-text: #80deea;
+  --chip-volume-norm-border: rgba(128, 222, 234, 0.4);
+  
+  --chip-volume-low-bg: rgba(255, 152, 0, 0.2);
+  --chip-volume-low-text: #ffcc80;
+  --chip-volume-low-border: rgba(255, 204, 128, 0.4);
+
+  --chip-roi-high-bg: rgba(46, 125, 50, 0.25);
+  --chip-roi-high-text: #81c784;
+  --chip-roi-high-border: rgba(129, 199, 132, 0.4);
+  
+  --chip-roi-mod-bg: rgba(255, 193, 7, 0.18);
+  --chip-roi-mod-text: #ffd54f;
+  --chip-roi-mod-border: rgba(255, 213, 79, 0.35);
+  
+  --chip-roi-low-bg: rgba(239, 83, 80, 0.22);
+  --chip-roi-low-text: #e57373;
+  --chip-roi-low-border: rgba(229, 115, 115, 0.4);
+  
+  --chip-roi-zero-bg: rgba(0, 150, 136, 0.2);
+  --chip-roi-zero-text: #4db6ac;
+  --chip-roi-zero-border: rgba(77, 182, 172, 0.4);
+  
+  --chip-xp-bg: rgba(16, 185, 129, 0.2);
+  --chip-xp-text: #6ee7b7;
+  --chip-xp-border: rgba(110, 231, 183, 0.4);
+  
+  --chip-budget-zero-bg: rgba(0, 150, 136, 0.2);
+  --chip-budget-zero-text: #4db6ac;
+  --chip-budget-zero-border: rgba(77, 182, 172, 0.4);
+  
+  --chip-budget-low-bg: rgba(255, 215, 0, 0.15);
+  --chip-budget-low-text: #ffe066;
+  --chip-budget-low-border: rgba(255, 215, 0, 0.35);
+  
+  --chip-budget-mod-bg: rgba(230, 126, 34, 0.18);
+  --chip-budget-mod-text: #ffb74d;
+  --chip-budget-mod-border: rgba(255, 183, 77, 0.35);
+  
+  --chip-budget-high-bg: rgba(155, 89, 182, 0.2);
+  --chip-budget-high-text: #ce93d8;
+  --chip-budget-high-border: rgba(206, 147, 216, 0.35);
+  
+  --chip-budget-heavy-bg: rgba(144, 164, 174, 0.2);
+  --chip-budget-heavy-text: #cfd8dc;
+  --chip-budget-heavy-border: rgba(207, 216, 220, 0.4);
+  
+  --loading-bg: rgba(255, 193, 7, 0.18);
+  --loading-text: #ffd54f;
+  --loading-border: rgba(255, 213, 79, 0.35);
+  
+  --loading-synced-bg: rgba(76, 175, 80, 0.2);
+  --loading-synced-text: #81c784;
+  --loading-synced-border: rgba(129, 199, 132, 0.35);
+  
+  --loading-error-bg: rgba(239, 83, 80, 0.2);
+  --loading-error-text: #ef5350;
+  --loading-error-border: rgba(239, 83, 80, 0.35);
+  
+  --skeleton-bg: rgba(255, 255, 255, 0.05);
+  --skeleton-text: #94a3b8;
+  --skeleton-border: rgba(255, 255, 255, 0.18);
+}
+
+body.wgl-theme-browntown,
+body.wgl-browntownmode,
+.osrs-filter-panel[data-theme="browntown"] {
+  --panel-bg: #34302b;
+  --panel-text: #e0d8c8;
+  --panel-border: #48423b;
+  --panel-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  
+  --divider-color: #48423b;
+  
+  --control-bg: #1e1b18;
+  --control-border: #48423b;
+  
+  --pill-text: #b0a898;
+  
+  --control-active-bg: #34302b;
+  --control-active-text: #ffffff;
+  --control-active-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  
+  --toggle-bg: #1e1b18;
+  --toggle-border: #48423b;
+  --toggle-text: #e0d8c8;
+  
+  --toggle-active-bg: #c62828;
+  --toggle-active-border: #b71c1c;
+  --toggle-active-text: #ffffff;
+  
+  --input-bg: #1e1b18;
+  --input-text: #ffffff;
+  --input-border: #524b43;
+  
+  --count-bg: #26231f;
+  --count-border: #48423b;
+  --count-text: #e0d8c8;
+  
+  --badge-bg: #28231d;
+  --badge-border: #4e453c;
+  --badge-text: #e0d8c8;
+  
+  --badge-excluded-bg: rgba(244, 67, 54, 0.18);
+  --badge-excluded-border: rgba(244, 67, 54, 0.45);
+  --badge-excluded-text: #ff8a80;
+  
+  --btn-primary-bg: #5c4e3e;
+  --btn-primary-text: #ffffff;
+  --btn-primary-border: #44392d;
+  --btn-primary-hover-bg: #6e5d4a;
+  
+  --btn-secondary-bg: #26231f;
+  --btn-secondary-text: #e0d8c8;
+  --btn-secondary-border: #48423b;
+  --btn-secondary-hover-bg: #36312c;
+  --btn-secondary-hover-border: #5c544c;
+  
+  --status-ok: #81c784;
+  --status-error: #b71c1c;
+  
+  --row-hide-bg: rgba(255, 255, 255, 0.1);
+  --row-hide-text: #e0d8c8;
+  --row-hide-border: #48423b;
+
+  --excluded-section-border: rgba(255, 255, 255, 0.12);
+
+  --chip-volume-norm-bg: rgba(0, 188, 212, 0.22);
+  --chip-volume-norm-text: #80cbc4;
+  --chip-volume-norm-border: rgba(128, 203, 196, 0.45);
+  
+  --chip-volume-low-bg: rgba(255, 152, 0, 0.22);
+  --chip-volume-low-text: #ffe082;
+  --chip-volume-low-border: rgba(255, 224, 130, 0.45);
+
+  --chip-roi-high-bg: rgba(76, 175, 80, 0.22);
+  --chip-roi-high-text: #a5d6a7;
+  --chip-roi-high-border: rgba(165, 214, 167, 0.45);
+  
+  --chip-roi-mod-bg: rgba(255, 193, 7, 0.2);
+  --chip-roi-mod-text: #ffe082;
+  --chip-roi-mod-border: rgba(255, 224, 130, 0.4);
+  
+  --chip-roi-low-bg: rgba(244, 67, 54, 0.22);
+  --chip-roi-low-text: #ffab91;
+  --chip-roi-low-border: rgba(255, 171, 145, 0.45);
+  
+  --chip-roi-zero-bg: rgba(0, 150, 136, 0.22);
+  --chip-roi-zero-text: #80cbc4;
+  --chip-roi-zero-border: rgba(128, 203, 196, 0.45);
+  
+  --chip-xp-bg: rgba(16, 185, 129, 0.18);
+  --chip-xp-text: #6ee7b7;
+  --chip-xp-border: rgba(110, 231, 183, 0.35);
+  
+  --chip-budget-zero-bg: rgba(0, 150, 136, 0.22);
+  --chip-budget-zero-text: #80cbc4;
+  --chip-budget-zero-border: rgba(128, 203, 196, 0.45);
+  
+  --chip-budget-low-bg: rgba(255, 215, 0, 0.18);
+  --chip-budget-low-text: #ffe57f;
+  --chip-budget-low-border: rgba(255, 229, 127, 0.4);
+  
+  --chip-budget-mod-bg: rgba(230, 126, 34, 0.2);
+  --chip-budget-mod-text: #ffd180;
+  --chip-budget-mod-border: rgba(255, 209, 128, 0.4);
+  
+  --chip-budget-high-bg: rgba(155, 89, 182, 0.22);
+  --chip-budget-high-text: #e1bee7;
+  --chip-budget-high-border: rgba(225, 190, 231, 0.4);
+  
+  --chip-budget-heavy-bg: rgba(144, 164, 174, 0.22);
+  --chip-budget-heavy-text: #eceff1;
+  --chip-budget-heavy-border: rgba(236, 239, 241, 0.45);
+  
+  --loading-bg: rgba(255, 193, 7, 0.2);
+  --loading-text: #ffe082;
+  --loading-border: rgba(255, 224, 130, 0.4);
+  
+  --loading-synced-bg: rgba(76, 175, 80, 0.22);
+  --loading-synced-text: #a5d6a7;
+  --loading-synced-border: rgba(165, 214, 167, 0.45);
+  
+  --loading-error-bg: rgba(239, 83, 80, 0.22);
+  --loading-error-text: #ff8a80;
+  --loading-error-border: rgba(255, 138, 128, 0.45);
+  
+  --skeleton-bg: rgba(255, 255, 255, 0.05);
+  --skeleton-text: #b0a898;
+  --skeleton-border: rgba(255, 255, 255, 0.18);
+}
+
+/* Base Filter Panel Layout & Section Dividing */
+.osrs-filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 18px;
+  background-color: var(--panel-bg);
+  color: var(--panel-text);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  box-shadow: var(--panel-shadow);
+  box-sizing: border-box;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.osrs-filter-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  width: 100%;
+}
+
+/* Section 1: Method Criteria (Intensity, Budget, Margin) */
+.osrs-criteria-section {
+  padding-bottom: 2px;
+}
+
+/* Section 2: Exclusions & Risk Toggles */
+.osrs-risk-section {
+  padding-top: 8px;
+  border-top: 1px dashed var(--divider-color);
+}
+
+/* Section 3: Player Profile & Utility Tools */
+.osrs-tools-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px dashed var(--divider-color);
+}
+
+.osrs-tools-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+}
+
+.osrs-tools-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.osrs-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Segmented Control Pill Container */
+.osrs-segmented-control {
+  display: inline-flex;
+  align-items: center;
+  background-color: var(--control-bg);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  box-sizing: border-box;
+}
+
+.osrs-pill-btn {
+  background: transparent;
+  color: var(--pill-text);
+  border: none;
+  border-radius: 4px;
+  padding: 4px 9px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.osrs-pill-btn:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.osrs-pill-btn.active {
+  background-color: var(--control-active-bg);
+  color: var(--control-active-text);
+  font-weight: 700;
+  box-shadow: var(--control-active-shadow);
+}
+
+/* Intensity Colored Dots */
+.osrs-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.osrs-dot.green { background-color: #2e7d32; }
+.osrs-dot.amber { background-color: #ed6c02; }
+.osrs-dot.red { background-color: #d32f2f; }
+
+/* Risk Multi-Select Toggle Chip Group */
+.osrs-chip-toggle-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.osrs-toggle-chip {
+  background-color: var(--toggle-bg);
+  color: var(--toggle-text);
+  border: 1px solid var(--toggle-border);
+  border-radius: 14px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.osrs-toggle-chip:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.osrs-toggle-chip.active {
+  background-color: var(--toggle-active-bg);
+  color: var(--toggle-active-text);
+  border-color: var(--toggle-active-border);
+  box-shadow: 0 1px 3px rgba(198, 40, 40, 0.3);
+}
+
+.osrs-toggle-chip.active svg {
+  color: #ffffff;
+}
+
+.osrs-filter-select,
+.osrs-filter-input {
+  background-color: var(--input-bg);
+  color: var(--input-text);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.osrs-input-wrapper .osrs-filter-input {
+  padding-left: 28px;
+}
+
+.osrs-filter-select:focus,
+.osrs-filter-input:focus {
+  border-color: var(--link-color, #007acc);
+  box-shadow: 0 0 4px rgba(0, 122, 204, 0.4);
+}
+
+.osrs-filter-input {
+  min-width: 180px;
+  flex-grow: 1;
+}
+
+.osrs-filter-rsn {
+  min-width: 120px;
+  max-width: 150px;
+}
+
+.osrs-filter-input::placeholder {
+  color: var(--subtle-color, #666666);
+  opacity: 0.8;
+}
+
+/* Primary Lookup Button */
+.osrs-filter-btn-lookup {
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  border: 1px solid var(--btn-primary-border);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.osrs-filter-btn-lookup:hover {
+  background-color: var(--btn-primary-hover-bg);
+  filter: brightness(1.1);
+}
+
+.osrs-filter-btn-lookup:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.osrs-filter-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: inherit;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.osrs-filter-checkbox-label input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--link-color, #007acc);
+}
+
+/* Clear Button */
+.osrs-filter-btn-clear {
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
+  border-radius: 4px;
+  padding: 6px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.osrs-filter-btn-clear:hover {
+  background-color: var(--btn-secondary-hover-bg);
+  border-color: var(--btn-secondary-hover-border);
+  filter: brightness(0.92);
+}
+
+.osrs-filter-btn-clear:active {
+  filter: brightness(0.85);
+}
+
+/* Load / Resync Financial Metrics Button */
+.osrs-filter-btn-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--button-background, #4a5568);
+  color: var(--button-color, #ffffff);
+  border: 1px solid var(--button-border, #2d3748);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.2s ease, border-color 0.2s ease, filter 0.15s ease;
+}
+
+.osrs-filter-btn-refresh.osrs-btn-load {
+  background-color: #2e7d32;
+  border-color: #1b5e20;
+  box-shadow: 0 1px 3px rgba(46, 125, 50, 0.3);
+}
+
+.osrs-filter-btn-refresh.osrs-btn-load:hover {
+  background-color: #388e3c;
+  filter: brightness(1.1);
+}
+
+.osrs-filter-btn-refresh.osrs-btn-resync {
+  background-color: var(--button-background, #4a5568);
+  border-color: var(--button-border, #2d3748);
+}
+
+.osrs-filter-btn-refresh:hover {
+  filter: brightness(1.15);
+}
+
+.osrs-filter-btn-refresh:active .osrs-refresh-icon {
+  transform: rotate(180deg);
+}
+
+.osrs-refresh-icon {
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+/* Status & Active Badges Row */
+.osrs-filter-status-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.osrs-stats-status {
+  font-size: 12px;
+  color: var(--status-ok);
+  display: none;
+  font-weight: 600;
+}
+
+.osrs-stats-status.active {
+  display: block;
+}
+
+.osrs-stats-status.error {
+  color: var(--status-error);
+}
+
+.osrs-rsn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background-color: rgba(46, 125, 50, 0.12);
+  border: 1px solid rgba(46, 125, 50, 0.3);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.osrs-active-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.osrs-count-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 12px;
+  background-color: var(--count-bg);
+  border: 1px solid var(--count-border);
+  color: var(--count-text);
+  white-space: nowrap;
+}
+
+.osrs-active-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.osrs-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  background-color: var(--badge-bg);
+  border: 1px solid var(--badge-border);
+  color: var(--badge-text);
+  transition: all 0.15s ease;
+}
+
+.osrs-badge-remove {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+.osrs-badge-remove:hover {
+  opacity: 1;
+  color: #d32f2f;
+}
+
+.osrs-excluded-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--excluded-section-border);
+}
+
+.osrs-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.osrs-badge-excluded-method {
+  background-color: var(--badge-excluded-bg) !important;
+  border: 1px solid var(--badge-excluded-border) !important;
+  color: var(--badge-excluded-text) !important;
+}
+
+/* In-row hide button */
+.osrs-row-hide-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  padding: 0;
+  background-color: var(--row-hide-bg);
+  color: var(--row-hide-text);
+  border: 1px solid var(--row-hide-border);
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: all 0.15s ease;
+}
+
+.osrs-row-hide-btn:hover {
+  background-color: #d32f2f;
+  color: #ffffff;
+  border-color: #f44336;
+  box-shadow: 0 0 4px rgba(244, 67, 54, 0.4);
+}
+
+/* ==========================================================================
+   ROI & INPUT COST BADGE CHIPS (Method Cell Badges & Right Alignment)
+   ========================================================================== */
+.osrs-method-cell {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px;
+}
+
+.osrs-chip-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.osrs-chip-container .osrs-chip-volume,
+.osrs-chip-container .osrs-chip-xp,
+.osrs-chip-container .osrs-chip-roi,
+.osrs-chip-container .osrs-chip-budget {
+  margin-left: 0;
+}
+
+.osrs-chip-xp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 1px solid var(--chip-xp-border);
+  background-color: var(--chip-xp-bg);
+  color: var(--chip-xp-text);
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  cursor: help;
+}
+
+.osrs-chip-xp:hover {
+  transform: translateY(-1px);
+}
+
+.osrs-chip-xp-svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 3.5px;
+  flex-shrink: 0;
+}
+
+.osrs-chip-volume {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  flex: 0 0 68px;
+  box-sizing: border-box;
+  padding: 2px 5px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  cursor: help;
+}
+
+.osrs-chip-volume:hover {
+  transform: translateY(-1px);
+}
+
+.osrs-chip-volume-svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 3px;
+  flex-shrink: 0;
+}
+
+.osrs-chip-volume-norm {
+  background-color: var(--chip-volume-norm-bg);
+  color: var(--chip-volume-norm-text);
+  border-color: var(--chip-volume-norm-border);
+}
+
+.osrs-chip-volume-low {
+  background-color: var(--chip-volume-low-bg);
+  color: var(--chip-volume-low-text);
+  border-color: var(--chip-volume-low-border);
+}
+
+.osrs-chip-roi-spacer {
+  display: inline-block;
+  width: 84px;
+  flex: 0 0 84px;
+  box-sizing: border-box;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.osrs-chip-roi {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  flex: 0 0 84px;
+  box-sizing: border-box;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  cursor: help;
+}
+
+.osrs-chip-roi:hover {
+  transform: translateY(-1px);
+}
+
+.osrs-chip-roi-high {
+  background-color: var(--chip-roi-high-bg);
+  color: var(--chip-roi-high-text);
+  border-color: var(--chip-roi-high-border);
+}
+
+.osrs-chip-roi-mod {
+  background-color: var(--chip-roi-mod-bg);
+  color: var(--chip-roi-mod-text);
+  border-color: var(--chip-roi-mod-border);
+}
+
+.osrs-chip-roi-low {
+  background-color: var(--chip-roi-low-bg);
+  color: var(--chip-roi-low-text);
+  border-color: var(--chip-roi-low-border);
+}
+
+.osrs-chip-roi-zero {
+  background-color: var(--chip-roi-zero-bg);
+  color: var(--chip-roi-zero-text);
+  border-color: var(--chip-roi-zero-border);
+}
+
+/* Budget Input Badges (Sleek Tag Shape & Neutral OSRS Gold/Slate Theme) */
+.osrs-chip-budget {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  flex: 0 0 112px;
+  box-sizing: border-box;
+  margin-left: 0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+  cursor: help;
+}
+
+.osrs-chip-budget:hover {
+  transform: translateY(-1px);
+}
+
+/* Badge Inline SVG Meter & Graphic Icons */
+.osrs-chip-roi-svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 3.5px;
+  flex-shrink: 0;
+}
+
+.osrs-budget-meter-svg {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 4.5px;
+  flex-shrink: 0;
+}
+
+.osrs-meter-bar {
+  fill: currentColor;
+  opacity: 0.22;
+  transition: opacity 0.15s ease, fill 0.15s ease;
+}
+
+.osrs-meter-bar.filled {
+  opacity: 1;
+}
+
+.osrs-chip-budget-zero {
+  background-color: var(--chip-budget-zero-bg);
+  color: var(--chip-budget-zero-text);
+  border-color: var(--chip-budget-zero-border);
+}
+
+.osrs-chip-budget-low {
+  background-color: var(--chip-budget-low-bg);
+  color: var(--chip-budget-low-text);
+  border-color: var(--chip-budget-low-border);
+}
+
+.osrs-chip-budget-mod {
+  background-color: var(--chip-budget-mod-bg);
+  color: var(--chip-budget-mod-text);
+  border-color: var(--chip-budget-mod-border);
+}
+
+.osrs-chip-budget-high {
+  background-color: var(--chip-budget-high-bg);
+  color: var(--chip-budget-high-text);
+  border-color: var(--chip-budget-high-border);
+}
+
+.osrs-chip-budget-heavy {
+  background-color: var(--chip-budget-heavy-bg);
+  color: var(--chip-budget-heavy-text);
+  border-color: var(--chip-budget-heavy-border);
+}
+
+/* ==========================================================================
+   LOADING SPINNER & PROGRESS INDICATORS
+   ========================================================================== */
+@keyframes osrs-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.osrs-spinner-svg {
+  animation: osrs-spin 1s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.osrs-loading-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background-color: var(--loading-bg);
+  color: var(--loading-text);
+  border: 1px solid var(--loading-border);
+  white-space: nowrap;
+  transition: opacity 0.3s ease, background-color 0.3s ease;
+}
+
+.osrs-loading-chip.synced {
+  background-color: var(--loading-synced-bg);
+  color: var(--loading-synced-text);
+  border-color: var(--loading-synced-border);
+}
+
+.osrs-loading-chip.error {
+  background-color: var(--loading-error-bg);
+  color: var(--loading-error-text);
+  border-color: var(--loading-error-border);
+  cursor: pointer;
+}
+
+/* Skeleton / Row Loading Chip */
+.osrs-chip-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 112px;
+  flex: 0 0 112px;
+  box-sizing: border-box;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  background-color: var(--skeleton-bg);
+  color: var(--skeleton-text);
+  border: 1px dashed var(--skeleton-border);
+  white-space: nowrap;
+}

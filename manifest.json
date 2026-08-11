@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "OSRS Money Making Filter",
+  "version": "1.0.0",
+  "description": "A tool to filter the OSRS Wiki money making guide table by intensity, excluded methods, and player skill levels.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://api.wiseoldman.net/*",
+    "https://secure.runescape.com/*",
+    "https://oldschool.runescape.wiki/*",
+    "https://*.runescape.wiki/*"
+  ],
+  "action": {
+    "default_title": "OSRS Money Making Filter",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://oldschool.runescape.wiki/w/Money_making_guide*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "name": "osrs-money-making-filter",
+  "private": true,
+  "version": "1.0.0",
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && cp manifest.json background.js dist/ && cp -r icons dist/",
+    "zip": "npm run build && (cd dist && zip -r -X ../osrs-money-making-filter.zip . -x '*.DS_Store' -x '*/.*')",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/chrome": "^0.2.5",
+    "svelte": "^5.56.8",
+    "svelte-check": "^4.7.5",
+    "tslib": "^2.8.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
+  }
+}
