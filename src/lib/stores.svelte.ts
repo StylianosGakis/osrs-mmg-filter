@@ -64,7 +64,6 @@ export const financialState = $state({
 export const statsState = $state({
   status: '' as string,
   isError: false,
-  isLooking: false,
 });
 
 // ─── Persistence ──────────────────────────────────────────────
@@ -95,45 +94,18 @@ export async function hydrateFilters(): Promise<void> {
   if (!chrome?.storage?.local) return;
 
   return new Promise((resolve) => {
-    chrome.storage.local.get(
-      ['filterState_v2', 'hiddenIntensity', 'hideWilderness', 'hideRisky', 'hiddenRisk', 'maxBudget', 'minRoi', 'excludedMethods', 'rsn', 'playerStats', 'filterByStats'],
-      (result: { [key: string]: any }) => {
-        if (result?.filterState_v2) {
-          // New format
-          Object.assign(filters, result.filterState_v2);
-          if (!Array.isArray(filters.excludedMethods)) {
-            filters.excludedMethods = filters.excludedMethods ? Object.values(filters.excludedMethods) : [];
-          }
-        } else if (result) {
-          // Legacy format migration
-          if (result.hiddenIntensity) filters.intensity = result.hiddenIntensity;
-          if (result.hideWilderness !== undefined) {
-            filters.hideWilderness = result.hideWilderness;
-          } else if (result.hiddenRisk) {
-            filters.hideWilderness = result.hiddenRisk === 'wilderness' || result.hiddenRisk === 'all';
-          }
-          if (result.hideRisky !== undefined) {
-            filters.hideRisky = result.hideRisky;
-          } else if (result.hiddenRisk) {
-            filters.hideRisky = result.hiddenRisk === 'all';
-          }
-          if (result.maxBudget) filters.maxBudget = result.maxBudget;
-          if (result.minRoi) filters.minRoi = result.minRoi;
-          if (result.excludedMethods) {
-            try {
-              const parsed = JSON.parse(result.excludedMethods);
-              filters.excludedMethods = Array.isArray(parsed) ? parsed : [];
-            } catch {
-              filters.excludedMethods = result.excludedMethods.split(',').map((s: string) => s.trim()).filter(Boolean);
-            }
-          }
-          if (result.rsn) filters.rsn = result.rsn;
-          if (result.playerStats) filters.playerStats = result.playerStats;
-          if (result.filterByStats !== undefined) filters.filterByStats = result.filterByStats;
+    chrome.storage.local.get(['filterState_v2'], (result) => {
+      const stored = result['filterState_v2'] as Partial<FilterState> | undefined;
+      if (stored) {
+        Object.assign(filters, stored);
+        if (!Array.isArray(filters.excludedMethods)) {
+          filters.excludedMethods = filters.excludedMethods
+            ? Object.values(filters.excludedMethods as Record<string, string>)
+            : [];
         }
-        resolve();
       }
-    );
+      resolve();
+    });
   });
 }
 

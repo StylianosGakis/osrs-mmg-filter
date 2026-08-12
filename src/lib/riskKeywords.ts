@@ -22,7 +22,11 @@
  * Single source of truth for DOM-based risk detection in the content script.
  */
 
-/** Keywords that indicate wilderness/PvP risk when found in row text, page title, or requirements */
+// Keywords matched against compact wiki table cell text (method name, page title,
+// requirements, category). Intentionally differs from WILDERNESS_WIKITEXT_KEYWORDS in
+// background.js, which matches full article body text from MediaWiki action=parse.
+// This list includes specific location names and orb methods that appear in table cells
+// but not in article phrase-level risk warnings. Keep shared boss/location names in sync.
 export const WILDERNESS_DOM_KEYWORDS: readonly string[] = [
   'wilderness', 'wildy', 'pvp', 'ferox enclave', 'rev cave', 'revenant cave',
   'mage arena', 'chaos temple', 'deep wild', 'level 30 wild', 'revenant',

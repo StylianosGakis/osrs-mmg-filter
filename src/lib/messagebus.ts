@@ -105,7 +105,7 @@ export function onBackgroundMessage(
   handler: (message: BackgroundMessage) => void
 ): void {
   chrome.runtime.onMessage.addListener(
-    (message: BackgroundMessage, _sender: chrome.runtime.MessageSender, _sendResponse: (response?: any) => void) => {
+    (message: BackgroundMessage, _sender, _sendResponse) => {
       if (message.action === 'warningsUpdated' || message.action === 'syncLog') {
         handler(message);
       }

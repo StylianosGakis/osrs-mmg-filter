@@ -36,9 +36,20 @@
     filters.hideRisky ||
     filters.maxBudget !== 'none' ||
     filters.minRoi !== 'none' ||
+    filters.xpSkill !== 'all' ||
+    filters.minXp !== 'none' ||
     (filters.playerStats !== null && filters.filterByStats && filters.rsn.trim() !== '') ||
     filters.excludedMethods.length > 0
   );
+
+  let xpBadgeValue = $derived.by(() => {
+    if (filters.xpSkill === 'all') return null;
+    const skillLabel =
+      filters.xpSkill === 'any' ? 'Any skill' :
+      filters.xpSkill === 'combat' ? 'Combat' :
+      filters.xpSkill.charAt(0).toUpperCase() + filters.xpSkill.slice(1);
+    return filters.minXp !== 'none' ? `${skillLabel} ≥ ${filters.minXp}/hr` : skillLabel;
+  });
 
   let countText = $derived.by(() => {
     if (totalCount <= 0) return 'Showing -- methods';
@@ -134,6 +145,14 @@
             chrome?.storage?.local?.remove(['rsn', 'playerStats']);
             saveFilters();
           }}
+        />
+      {/if}
+
+      {#if xpBadgeValue !== null}
+        <ActiveBadge
+          label="XP"
+          value={xpBadgeValue}
+          onremove={() => { filters.xpSkill = 'all'; filters.minXp = 'none'; saveFilters(); }}
         />
       {/if}
     </div>

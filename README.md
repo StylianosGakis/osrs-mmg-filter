@@ -48,8 +48,8 @@ All data is cached locally in `chrome.storage.local` for 6 hours. No data is eve
 
 ## Installation
 
-### From the Chrome Web Store *(coming soon)*
-Search for **OSRS MMG Filter** in the Chrome Web Store.
+### From the Chrome Web Store *(pending approval)*
+Search for **OSRS MMG Filter** in the Chrome Web Store — the listing is currently under review.
 
 ### Manual / Developer Install
 1. Clone this repository

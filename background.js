@@ -26,6 +26,11 @@ let warningCache = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 Hours
 const CACHE_STORAGE_KEY = 'mmgCache_v8';
 
+// Keywords matched against MediaWiki action=parse rendered HTML (full article body text).
+// Intentionally broader than WILDERNESS_DOM_KEYWORDS in riskKeywords.ts, which matches
+// compact wiki table cell text. This list covers in-article phrases and risk warnings
+// (e.g. 'loss of items', 'pker') that do not appear in table rows but do appear in
+// subpage article bodies. Keep in sync with riskKeywords.ts for shared boss/location names.
 const WILDERNESS_WIKITEXT_KEYWORDS = [
   'wilderness', 'wildy', 'pvp', 'pker', 'pkers', 'pked', 'deep wild',
   'high risk', 'loss of items', 'items you are not willing to lose',
