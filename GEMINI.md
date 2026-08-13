@@ -93,6 +93,16 @@ This file provides architectural context, implementation rules, and developer in
 > ```
 > **Note:** In `.svelte` files, the comment header MUST be placed inside the `<script>` tag (e.g. immediately after `<script lang="ts">`). Placing comment blocks outside `<script>` causes the Svelte compiler to render them as visible HTML template text in the DOM. Also, do NOT use angle-bracket URL syntax (`<https://...>`) in `.svelte` files — the Svelte compiler parses `<...>` as HTML tags and will throw errors. Use plain URLs as shown above.
 
+> [!IMPORTANT]
+> **5. Keep Wiki Parsing Pure and Fixture-Tested**
+> All parsing of MediaWiki `action=parse` output MUST stay in `src/lib/wikiParse.ts` as pure functions (no `chrome`, no network) covered by fixture tests. Do NOT move parsing back into `src/background.ts`. This markup is the most fragile surface in the extension (a wiki template change can silently zero the numbers), so when a parser needs updating, refresh or add a fixture and assert the new expected values so a regression fails a test instead of shipping silently. See "Regenerating parser fixtures" below.
+
+> [!IMPORTANT]
+> **6. Financial Sync Invariants (easy to break)**
+> Two invariants in the sync path must be preserved:
+> 1. **`finParsed` means "successfully parsed", not "attempted".** In `src/background.ts` it is set to `true` ONLY on a genuinely successful parse. A network error, a non-ok response, or a missing `parse` key MUST leave `finParsed: false` so the next sync retries, rather than caching zeroed financials for the 6-hour TTL and making Budget/ROI filters silently wrong.
+> 2. **Stale syncs must not clobber newer ones.** Every sync run in `App.svelte` captures a `syncGeneration` counter. Any timer (stall watchdog, "synced" auto-hide) or background `warningsUpdated` push that touches progress or UI state is guarded against a superseded generation. If you add async work to the sync path, thread the generation through the same way.
+
 ---
 
 ## 🛠️ Verification & Syntax Testing Commands
@@ -102,7 +112,7 @@ Run **all four** checks before declaring work complete:
 npm run check   # svelte-check: 0 errors required
 npm run build   # check + two Vite passes (content, then `vite build --mode background` for the worker) + asset copy: must succeed
 npm run zip     # builds + packages extension into osrs-money-making-filter.zip for Chrome Web Store upload
-npm test        # vitest: the whole suite must pass (27+ tests)
+npm test        # vitest: the whole suite must pass (currently 81 tests)
 ```
 
 > [!NOTE]
@@ -115,8 +125,36 @@ for f in $(find src -name '*.ts' -o -name '*.svelte'); do
 done
 ```
 
+**Regenerating parser fixtures** (for `wikiParse.test.ts`): capture a real `action=parse` response into `src/lib/__tests__/fixtures/`:
+```bash
+curl -s -H 'User-Agent: osrs-mmg-filter-dev/1.0' \
+  'https://oldschool.runescape.wiki/api.php?action=parse&page=Money%20making%20guide/<TITLE>&prop=text|categories|templates&format=json&origin=*' \
+  -o src/lib/__tests__/fixtures/<name>.json
+```
+Fixtures are imported as JSON modules in the tests (`tsconfig` has `resolveJsonModule`), so no Node `fs` types are needed. Keep a representative spread (a processing method, a buying method, a combat method, a wilderness method, and a disambiguation page that has no MMG markup).
+
 To test in Chrome:
 1. Open `chrome://extensions/`.
 2. Enable **Developer Mode**.
 3. Click **Load unpacked** and select the `dist/` directory.
 4. Visit `https://oldschool.runescape.wiki/w/Money_making_guide`.
+5. Reloading the extension does NOT re-inject into already-open tabs; refresh the guide page after reloading.
+
+---
+
+## 🚀 Release Process
+
+Releases are annotated git tags plus a GitHub release that carries the packaged zip. To cut `vX.Y.Z`:
+
+1. Bump the version identically in `manifest.json`, `package.json`, `package-lock.json`, and this `GEMINI.md` (the manifest bullet under File Structure). `npm install --package-lock-only --ignore-scripts` syncs the lockfile from `package.json`.
+2. Run `npm run zip` (this runs check, both build passes, and packaging). Confirm `svelte-check` is clean, `npm test` passes, and `dist/manifest.json` shows the new version.
+3. Commit the version files only as `vX.Y.Z - <summary>` (`dist/` and `osrs-money-making-filter.zip` are gitignored).
+4. Push `main`, then create and push an annotated tag:
+   ```bash
+   git tag -a vX.Y.Z -m "vX.Y.Z - <summary>" && git push origin main vX.Y.Z
+   ```
+5. Publish the GitHub release with the artifact attached, using "### Fixed" / "### Internal" note sections to match prior releases:
+   ```bash
+   gh release create vX.Y.Z --title vX.Y.Z --notes "..." osrs-money-making-filter.zip
+   ```
+6. **Chrome Web Store upload is manual** and is NOT done by this process. Upload `osrs-money-making-filter.zip` at the Chrome Web Store developer dashboard to ship the release to users.
