@@ -17,6 +17,8 @@
  *
  * Source: https://github.com/StylianosGakis/osrs-mmg-filter
  */
+import type { SkillRequirement } from '../types';
+
 /**
  * Skill name aliases for matching wiki text to canonical OSRS skill names.
  */
@@ -61,40 +63,30 @@ export function getFullCellText(cell: Element): string {
 }
 
 /**
- * Parse skill requirements from a table cell element by element.
- * Returns an array of {skill, level} objects.
+ * Parse skill requirements from an array of text snippets.
+ *
+ * This is the pure, DOM-free core of the requirement parser. Each snippet is
+ * scanned for two patterns and matched against {@link SKILL_ALIASES}:
+ *   - Pattern A: "90+ Ranged", "70+ Def", "99 Magic" (level then skill)
+ *   - Pattern B: "Ranged 90+", "Def 70+" (skill then level)
+ *
+ * Only levels within the valid 1..99 range and words that map to a known skill
+ * alias are kept. Results are deduplicated by (skill, level).
+ *
+ * The skill word is matched at a word boundary so that an alias which is only a
+ * substring of a longer word is not matched (the greedy `[a-z]+` already
+ * captures the full letter run, and the `\b` anchors make that explicit).
  */
-export function parseCellRequirements(cell: Element): { skill: string; level: number }[] {
-  if (!cell) return [];
-  const reqs: { skill: string; level: number }[] = [];
-
-  const subElements = cell.querySelectorAll('span, li, a, div, td');
-  const snippets: string[] = [];
-
-  if (subElements.length > 0) {
-    subElements.forEach((el) => {
-      if (el.children.length <= 3) {
-        let snippetText = el.textContent || '';
-        el.querySelectorAll('[alt], [title]').forEach((attrEl) => {
-          const htmlEl = attrEl as HTMLElement;
-          if (htmlEl.getAttribute('alt')) snippetText += ' ' + htmlEl.getAttribute('alt');
-          if (htmlEl.getAttribute('title')) snippetText += ' ' + htmlEl.getAttribute('title');
-        });
-        snippets.push(snippetText);
-      }
-    });
-  }
-
-  // Fallback: full cell text
-  snippets.push(getFullCellText(cell));
+export function parseRequirementsFromSnippets(snippets: string[]): SkillRequirement[] {
+  const reqs: SkillRequirement[] = [];
 
   snippets.forEach((snippet) => {
     const norm = snippet.toLowerCase();
 
     // Pattern A: "90+ Ranged", "70+ Def", "99 Magic"
-    const patternA = /(\d{1,2})\s*\+?\s*:?\s*([a-z]+)/g;
+    const patternA = /(\d{1,2})\s*\+?\s*:?\s*\b([a-z]+)\b/g;
     // Pattern B: "Ranged 90+", "Def 70+"
-    const patternB = /([a-z]+)\s*:?\s*(\d{1,2})\s*\+?/g;
+    const patternB = /\b([a-z]+)\b\s*:?\s*(\d{1,2})\s*\+?/g;
 
     let match: RegExpExecArray | null;
     while ((match = patternA.exec(norm)) !== null) {
@@ -121,4 +113,34 @@ export function parseCellRequirements(cell: Element): { skill: string; level: nu
   });
 
   return reqs;
+}
+
+/**
+ * Parse skill requirements from a table cell element by element.
+ * Returns an array of {skill, level} objects.
+ */
+export function parseCellRequirements(cell: Element): { skill: string; level: number }[] {
+  if (!cell) return [];
+
+  const subElements = cell.querySelectorAll('span, li, a, div, td');
+  const snippets: string[] = [];
+
+  if (subElements.length > 0) {
+    subElements.forEach((el) => {
+      if (el.children.length <= 3) {
+        let snippetText = el.textContent || '';
+        el.querySelectorAll('[alt], [title]').forEach((attrEl) => {
+          const htmlEl = attrEl as HTMLElement;
+          if (htmlEl.getAttribute('alt')) snippetText += ' ' + htmlEl.getAttribute('alt');
+          if (htmlEl.getAttribute('title')) snippetText += ' ' + htmlEl.getAttribute('title');
+        });
+        snippets.push(snippetText);
+      }
+    });
+  }
+
+  // Fallback: full cell text
+  snippets.push(getFullCellText(cell));
+
+  return parseRequirementsFromSnippets(snippets);
 }

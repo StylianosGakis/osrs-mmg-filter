@@ -1,4 +1,7 @@
 /* OSRS Money Making Filter Plugin Stylesheet */
+/* Consumed by BOTH scopes: injected into the Svelte panel's shadow root and into
+   the document head (for the light-DOM row chips and hide buttons). All rules are
+   ".osrs-" prefixed so the global head injection does not collide with wiki styles. */
 
 /* ==========================================================================
    THEME VARIABLES

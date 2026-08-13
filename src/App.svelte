@@ -23,13 +23,14 @@
   import FilterPanel from './components/FilterPanel.svelte';
   import {
     filters, warningMap, syncProgress, financialState,
-    saveFilters, hydrateFilters, mergeWarnings, clearAllFilters, excludeMethod,
+    hydrateFilters, mergeWarnings, clearAllFilters, excludeMethod,
   } from '$lib/stores.svelte';
   import { evaluateRow, passesNonFinancialCriteria } from '$lib/filterEngine';
   import { getFullCellText, parseCellRequirements } from '$lib/requirementParser';
   import { renderChipsForCell, getMethodName, getMethodPageTitle } from '$lib/chipRenderer';
   import { checkSubpageWarnings, purgeAndRefetch, onBackgroundMessage } from '$lib/messagebus';
-  import type { RowData, BackgroundMessage } from './types';
+  import { titleKey } from '$lib/titleKey';
+  import type { RowData, RowVerdict, SubpageWarning, BackgroundMessage } from './types';
 
   // ─── Wiki Table Reference ──────────────────────────────────
   interface Props {
@@ -45,7 +46,13 @@
 
   let visibleCount = $state(0);
   let totalCount = $state(0);
+
+  // Sync lifecycle guards. Every sync run captures the generation counter at
+  // start; any timer or background push that belongs to a superseded run is
+  // ignored, so a stale watchdog or auto-hide can never clobber a newer sync.
+  let syncGeneration = 0;
   let syncWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
+  let syncCompleteHideTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ─── Theme Detection ───────────────────────────────────────
   // Detect the wiki's active theme from body classes (outside Shadow DOM)
@@ -115,46 +122,69 @@
   }
 
   // ─── Filter Application ────────────────────────────────────
+  //
+  // Filtering is split into two stages so the decision logic and the DOM
+  // painting can change independently:
+  //   evaluateRowVisibility() — reads the row and decides (no mutation)
+  //   paintRow()              — renders chips, hide button, and visibility
+  // applyFilters() just drives the loop and tallies counts.
+
+  interface RowEval {
+    row: HTMLElement;
+    methodCell: HTMLTableCellElement;
+    rowData: RowData;
+    warning: SubpageWarning | null;
+    verdict: RowVerdict;
+  }
+
+  /** Look up the warning/financial record for a page title via the canonical key. */
+  function getWarning(pageTitle: string | null): SubpageWarning | null {
+    if (!pageTitle) return null;
+    return warningMap[titleKey(pageTitle)] ?? null;
+  }
+
+  /** Decide a row's visibility without touching the DOM. Returns null for non-data rows. */
+  function evaluateRowVisibility(rowEl: HTMLTableRowElement): RowEval | null {
+    const rowData = extractRowData(rowEl);
+    if (!rowData) return null;
+    const warning = getWarning(rowData.pageTitle);
+    const verdict = evaluateRow(rowData, filters, warning);
+    return {
+      row: rowEl,
+      methodCell: rowEl.cells[methodIndex] as HTMLTableCellElement,
+      rowData,
+      warning,
+      verdict,
+    };
+  }
+
+  /** Apply a row's decision to the DOM: chips, hide button, and visibility. */
+  function paintRow(ev: RowEval): void {
+    renderChipsForCell(ev.methodCell, ev.warning, financialState.isSyncing);
+    injectHideButton(ev.methodCell, ev.rowData.methodName);
+
+    // Visibility via row.style.display only (preserving native wiki table sorting)
+    if (ev.verdict.visible) {
+      ev.row.style.display = '';
+    } else {
+      if (ev.warning && ev.warning.finParsed) {
+        // Keep a debug log so it's easy to see why strict filters hid a specific method
+        console.debug(`[OSRS Filter Debug] Hidden "${ev.rowData.methodName}" because:`, ev.verdict.reasons);
+      }
+      ev.row.style.display = 'none';
+    }
+  }
 
   function applyFilters(): void {
-    const rows = table.querySelectorAll('tr');
     let visible = 0;
     let total = 0;
 
-    rows.forEach((row: Element) => {
-      const rowData = extractRowData(row as HTMLTableRowElement);
-      if (!rowData) return;
-
+    table.querySelectorAll('tr').forEach((row: Element) => {
+      const ev = evaluateRowVisibility(row as HTMLTableRowElement);
+      if (!ev) return;
       total++;
-
-      const warning = rowData.pageTitle
-        ? warningMap[rowData.pageTitle] || warningMap[rowData.pageTitle.toLowerCase()]
-        : null;
-
-      const verdict = evaluateRow(rowData, filters, warning);
-      const methodCell = (row as HTMLTableRowElement).cells[methodIndex];
-
-      // Render chips
-      renderChipsForCell(
-        methodCell as HTMLTableCellElement,
-        warning,
-        financialState.isSyncing
-      );
-
-      // Inject hide button
-      injectHideButton(methodCell as HTMLTableCellElement, rowData.methodName);
-
-      // Apply visibility via row.style.display (preserving native wiki table sorting)
-      if (verdict.visible) {
-        (row as HTMLElement).style.display = '';
-        visible++;
-      } else {
-        if (warning && warning.finParsed) {
-          // Keep a debug log so it's easy to see why strict filters hid a specific method
-          console.debug(`[OSRS Filter Debug] Hidden "${rowData.methodName}" because:`, verdict.reasons);
-        }
-        (row as HTMLElement).style.display = 'none';
-      }
+      paintRow(ev);
+      if (ev.verdict.visible) visible++;
     });
 
     visibleCount = visible;
@@ -199,18 +229,57 @@
 
   // ─── Financial Loading ─────────────────────────────────────
 
-  function resetWatchdog(): void {
+  /** (Re)arm the stall watchdog for a specific sync generation. */
+  function resetWatchdog(gen: number): void {
     if (syncWatchdogTimer) clearTimeout(syncWatchdogTimer);
     syncWatchdogTimer = setTimeout(() => {
+      if (gen !== syncGeneration) return; // superseded by a newer sync
       if (syncProgress.syncing && !syncProgress.complete) {
         syncProgress.stalled = true;
       }
     }, 45_000);
   }
 
-  async function handleLoadData(): Promise<void> {
+  /** Mark a sync generation complete and schedule the "synced" chip to auto-hide. */
+  function markSyncComplete(gen: number, parsed: number): void {
+    if (gen !== syncGeneration) return; // superseded
+    syncProgress.parsed = parsed;
+    syncProgress.syncing = false;
+    syncProgress.complete = true;
+    financialState.isSyncing = false;
+    if (syncWatchdogTimer) {
+      clearTimeout(syncWatchdogTimer);
+      syncWatchdogTimer = null;
+    }
+    if (syncCompleteHideTimer) clearTimeout(syncCompleteHideTimer);
+    syncCompleteHideTimer = setTimeout(() => {
+      if (gen === syncGeneration) syncProgress.complete = false;
+    }, 4000);
+  }
+
+  /**
+   * Single entry point for both the initial load and a forced resync.
+   * `mode` selects the request (fresh cache read vs purge-and-refetch) and
+   * whether existing chips are cleared first.
+   */
+  async function runSync(mode: 'load' | 'resync'): Promise<void> {
     const candidates = getCandidateTitles();
     if (candidates.length === 0) return;
+
+    const gen = ++syncGeneration;
+
+    if (mode === 'resync') {
+      // Clear cached warnings and chips for candidate rows before refetching
+      table.querySelectorAll('tr').forEach((row: Element) => {
+        const rowData = extractRowData(row as HTMLTableRowElement);
+        if (rowData?.pageTitle && candidates.includes(rowData.pageTitle)) {
+          delete warningMap[titleKey(rowData.pageTitle)];
+          const cell = (row as HTMLTableRowElement).cells[methodIndex];
+          const container = cell?.querySelector('.osrs-chip-container');
+          if (container) container.replaceChildren();
+        }
+      });
+    }
 
     financialState.hasLoaded = true;
     financialState.isSyncing = true;
@@ -220,86 +289,40 @@
     syncProgress.parsed = 0;
     syncProgress.total = candidates.length;
 
-    const result = await checkSubpageWarnings(candidates);
+    const result = mode === 'resync'
+      ? await purgeAndRefetch(candidates)
+      : await checkSubpageWarnings(candidates);
+
+    // Warning data is safe to merge even if superseded (it is just cache data),
+    // but progress/timer state must only advance for the current sync.
     mergeWarnings(result);
-    
-    // Check if the initial response already contains all the parsed data we need
+    if (gen !== syncGeneration) {
+      applyFilters();
+      return;
+    }
+
+    // Did the immediate response already contain everything we asked for?
     let completeCount = 0;
-    candidates.forEach(c => {
-      const w = result[c] || result[c.toLowerCase()];
+    candidates.forEach((c) => {
+      const w = result[titleKey(c)];
       if (w && w.finParsed) completeCount++;
     });
-    
+
     if (completeCount >= candidates.length) {
-      syncProgress.parsed = completeCount;
-      syncProgress.syncing = false;
-      syncProgress.complete = true;
-      financialState.isSyncing = false;
-      setTimeout(() => {
-        syncProgress.complete = false;
-      }, 4000);
-      if (syncWatchdogTimer) {
-        clearTimeout(syncWatchdogTimer);
-        syncWatchdogTimer = null;
-      }
+      markSyncComplete(gen, completeCount);
     } else {
-      resetWatchdog();
+      resetWatchdog(gen);
     }
-    
+
     applyFilters();
   }
 
-  async function handleResync(): Promise<void> {
-    const candidates = getCandidateTitles();
-    if (candidates.length === 0) return;
+  function handleLoadData(): void {
+    void runSync('load');
+  }
 
-    // Clear chips from candidate rows
-    table.querySelectorAll('tr').forEach((row: Element) => {
-      const rowData = extractRowData(row as HTMLTableRowElement);
-      if (rowData?.pageTitle && candidates.includes(rowData.pageTitle)) {
-        delete warningMap[rowData.pageTitle];
-        delete warningMap[rowData.pageTitle.toLowerCase()];
-        const cell = (row as HTMLTableRowElement).cells[methodIndex];
-        const container = cell?.querySelector('.osrs-chip-container');
-        if (container) container.replaceChildren();
-      }
-    });
-
-    financialState.hasLoaded = true;
-    financialState.isSyncing = true;
-    syncProgress.syncing = true;
-    syncProgress.complete = false;
-    syncProgress.stalled = false;
-    syncProgress.parsed = 0;
-    syncProgress.total = candidates.length;
-
-    const result = await purgeAndRefetch(candidates);
-    mergeWarnings(result);
-    
-    // Check if the initial response already contains all the parsed data we need
-    let completeCount = 0;
-    candidates.forEach(c => {
-      const w = result[c] || result[c.toLowerCase()];
-      if (w && w.finParsed) completeCount++;
-    });
-    
-    if (completeCount >= candidates.length) {
-      syncProgress.parsed = completeCount;
-      syncProgress.syncing = false;
-      syncProgress.complete = true;
-      financialState.isSyncing = false;
-      setTimeout(() => {
-        syncProgress.complete = false;
-      }, 4000);
-      if (syncWatchdogTimer) {
-        clearTimeout(syncWatchdogTimer);
-        syncWatchdogTimer = null;
-      }
-    } else {
-      resetWatchdog();
-    }
-    
-    applyFilters();
+  function handleResync(): void {
+    void runSync('resync');
   }
 
   function handleClear(): void {
@@ -309,7 +332,7 @@
 
   function handleRetrySync(): void {
     syncProgress.stalled = false;
-    handleResync();
+    void runSync('resync');
   }
 
   // ─── Background Message Handler ────────────────────────────
@@ -317,24 +340,22 @@
   onBackgroundMessage((message: BackgroundMessage) => {
     if (message.action === 'warningsUpdated') {
       mergeWarnings(message.warningMap);
-      resetWatchdog();
+      applyFilters();
 
+      // Only reflect progress while a sync is actually in flight. A push from a
+      // finished or superseded sync still merges its data (harmless) but must
+      // not revive or clobber the progress UI.
+      if (!syncProgress.syncing) return;
+
+      const gen = syncGeneration;
       syncProgress.parsed = message.parsedCount;
       syncProgress.total = message.totalTitles;
 
-      if (message.isComplete || (message.parsedCount >= message.totalTitles)) {
-        if (syncWatchdogTimer) clearTimeout(syncWatchdogTimer);
-        syncProgress.syncing = false;
-        syncProgress.complete = true;
-        financialState.isSyncing = false;
-
-        // Auto-hide synced chip after 4 seconds
-        setTimeout(() => {
-          syncProgress.complete = false;
-        }, 4000);
+      if (message.isComplete || message.parsedCount >= message.totalTitles) {
+        markSyncComplete(gen, message.parsedCount);
+      } else {
+        resetWatchdog(gen);
       }
-
-      applyFilters();
     } else if (message.action === 'syncLog') {
       const prefix = '[OSRS Filter Background]';
       const logMsg = message.message || '';

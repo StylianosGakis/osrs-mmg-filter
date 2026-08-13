@@ -19,56 +19,37 @@
  */
 /**
  * Background Service Worker for OSRS Money Making Filter
- * Handles cross-origin API calls to Jagex Hiscores, Wise Old Man API, and MediaWiki API
+ * Handles cross-origin API calls to Jagex Hiscores, Wise Old Man API, and MediaWiki API.
+ *
+ * All HTML/regex parsing lives in the pure, fixture-tested `$lib/wikiParse` module;
+ * this file is only responsible for networking, caching, and messaging.
  */
 
-import type { PlayerStats, SubpageWarning, XpGained } from './types';
-
-/** MediaWiki action=parse category entry (shape varies by API version). */
-interface ParseCategory {
-  '*'?: string;
-  title?: string;
-  name?: string;
-}
-
-/** MediaWiki action=parse template entry. */
-interface ParseTemplate {
-  '*'?: string;
-  title?: string;
-}
-
-/** Financial metrics parsed out of a rendered MMG subpage. */
-interface Financials {
-  inputCost: number;
-  grossOutput: number;
-  roi: number;
-  outputVolume: number;
-}
-
-/** Risk flags derived from a rendered MMG subpage. */
-interface RiskFlags {
-  hasWildernessWarning: boolean;
-  hasWarning: boolean;
-}
+import type { PlayerStats, SubpageWarning } from './types';
+import {
+  parseMmgFinancialsFromHtml,
+  extractRiskFromParseData,
+  extractXpGainedFromHtml,
+} from '$lib/wikiParse';
+import { displayTitle, titleKey } from '$lib/titleKey';
 
 let warningCache: Record<string, SubpageWarning> = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 Hours
 const CACHE_STORAGE_KEY = 'mmgCache_v8';
 
-// Keywords matched against MediaWiki action=parse rendered HTML (full article body text).
-// Intentionally broader than WILDERNESS_DOM_KEYWORDS in riskKeywords.ts, which matches
-// compact wiki table cell text. This list covers in-article phrases and risk warnings
-// (e.g. 'loss of items', 'pker') that do not appear in table rows but do appear in
-// subpage article bodies. Keep in sync with riskKeywords.ts for shared boss/location names.
-const WILDERNESS_WIKITEXT_KEYWORDS = [
-  'wilderness', 'wildy', 'pvp', 'pker', 'pkers', 'pked', 'deep wild',
-  'high risk', 'loss of items', 'items you are not willing to lose',
-  'located in wilderness', 'chaos elemental', 'revenant', 'scorpia',
-  'venenatis', 'vet\'ion', 'vetion', 'callisto', 'chaos fanatic',
-  'crazy archaeologist', 'fountain of rune', 'black chinchompa',
-  'lava dragon', 'rogue chest', 'rogues castle', 'spindel', 'artio',
-  'calvar\'ion', 'calvarion', 'zombie pirate'
-];
+/** Build a fresh, unparsed placeholder warning object. */
+function emptyWarning(): SubpageWarning {
+  return {
+    hasWildernessWarning: false,
+    hasWarning: false,
+    inputCost: 0,
+    grossOutput: 0,
+    roi: 99999,
+    outputVolume: 0,
+    xpGained: [],
+    finParsed: false,
+  };
+}
 
 let volumeMapCache: Record<string, number> | null = null;
 let volumeMapFetchTime = 0;
@@ -126,8 +107,6 @@ async function getVolumeMap(): Promise<Record<string, number>> {
 
   return volumeMapCache || {};
 }
-
-
 
 // Load persistent cache from chrome.storage.local on startup
 let hydrationPromise: Promise<void> | null = null;
@@ -261,8 +240,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const tabId = sender?.tab?.id;
     if (Array.isArray(request.pageTitles) && request.pageTitles.length > 0) {
       request.pageTitles.forEach((t: string) => {
-        const norm = t.replace(/_/g, ' ');
-        delete warningCache[norm.toLowerCase()];
+        delete warningCache[titleKey(t)];
       });
       persistCache();
     } else {
@@ -290,28 +268,21 @@ async function handleCheckPageWarnings(
     await hydrationPromise;
   }
 
-  const normalizedTitles = pageTitles.map((t) => t.replace(/_/g, ' '));
+  const normalizedTitles = pageTitles.map(displayTitle);
 
   const getResultMap = (): Record<string, SubpageWarning> => {
     const res: Record<string, SubpageWarning> = {};
     normalizedTitles.forEach((t) => {
-      res[t] = warningCache[t.toLowerCase()] || {
-        hasWildernessWarning: false,
-        hasWarning: false,
-        inputCost: 0,
-        grossOutput: 0,
-        roi: 99999,
-        outputVolume: 0,
-        xpGained: [],
-        finParsed: false
-      };
+      // Result maps are keyed by the canonical titleKey so the content script
+      // has exactly one key shape to look up (no case/underscore ambiguity).
+      res[titleKey(t)] = warningCache[titleKey(t)] || emptyWarning();
     });
     return res;
   };
 
   // Only skip titles if they are in warningCache AND have successfully parsed financials (finParsed)
   const missingTitles = normalizedTitles.filter((t) => {
-    const cached = warningCache[t.toLowerCase()];
+    const cached = warningCache[titleKey(t)];
     return !cached || !cached.finParsed;
   });
 
@@ -322,80 +293,6 @@ async function handleCheckPageWarnings(
 
   // Return currently available cached map immediately (< 5ms)
   return getResultMap();
-}
-
-function extractRiskFromParseData(
-  html: string,
-  categories: ParseCategory[] = [],
-  templates: ParseTemplate[] = []
-): RiskFlags {
-  let hasWildernessWarning = false;
-  let hasWarning = false;
-
-  // Strip out the global navigation boxes at the bottom of the page that contain links to all other methods
-  let cleanHtml = html || '';
-  const navboxIndex = cleanHtml.search(/<table[^>]*class="[^"]*navbox/i);
-  if (navboxIndex !== -1) {
-    cleanHtml = cleanHtml.substring(0, navboxIndex);
-  }
-
-  const htmlLower = cleanHtml.toLowerCase();
-
-  // Check page categories
-  if (Array.isArray(categories)) {
-    categories.forEach((c) => {
-      const cTitle = (c['*'] || c.title || '').toLowerCase();
-      if (cTitle.includes('mmg/risky') || cTitle.includes('risky')) {
-        hasWarning = true;
-      }
-      if (cTitle.includes('wilderness') || cTitle.includes('pvp')) {
-        hasWildernessWarning = true;
-        hasWarning = true;
-      }
-    });
-  }
-
-  // Check page templates
-  if (Array.isArray(templates)) {
-    templates.forEach((t) => {
-      const tName = (t['*'] || t.title || '').toLowerCase();
-      if (
-        tName.includes('wilderness') ||
-        tName.includes('wildy') ||
-        tName.includes('pvp') ||
-        tName.includes('dangerous') ||
-        tName.includes('danger')
-      ) {
-        hasWildernessWarning = true;
-        hasWarning = true;
-      }
-      if (
-        tName.includes('warning') ||
-        tName.includes('notice') ||
-        tName.includes('risk') ||
-        tName.includes('disclaimer') ||
-        tName.includes('caution') ||
-        tName.includes('caveat') ||
-        tName.includes('ambox') ||
-        tName.includes('ombox') ||
-        tName.includes('mmg warning') ||
-        tName.includes('mmgwarning')
-      ) {
-        hasWarning = true;
-      }
-    });
-  }
-
-  // Check wikitext warning text rendered in HTML
-
-  if (WILDERNESS_WIKITEXT_KEYWORDS.some((kw) => htmlLower.includes(kw))) {
-    if (htmlLower.includes('warning') || htmlLower.includes('notice') || htmlLower.includes('danger') || htmlLower.includes('risk') || htmlLower.includes('wilderness')) {
-      hasWildernessWarning = true;
-      hasWarning = true;
-    }
-  }
-
-  return { hasWildernessWarning, hasWarning };
 }
 
 async function processMissingTitlesInBackground(
@@ -415,7 +312,9 @@ async function processMissingTitlesInBackground(
   const getResultMap = (): Record<string, SubpageWarning> => {
     const res: Record<string, SubpageWarning> = {};
     normalizedTitles.forEach((t) => {
-      res[t] = warningCache[t.toLowerCase()];
+      // Result maps are keyed by the canonical titleKey so the content script
+      // has exactly one key shape to look up (no case/underscore ambiguity).
+      res[titleKey(t)] = warningCache[titleKey(t)] || emptyWarning();
     });
     return res;
   };
@@ -426,7 +325,7 @@ async function processMissingTitlesInBackground(
     persistCache();
     let parsedCount = 0;
     normalizedTitles.forEach((t) => {
-      const obj = warningCache[t.toLowerCase()];
+      const obj = warningCache[titleKey(t)];
       if (obj && obj.finParsed) parsedCount++;
     });
     const isComplete = parsedCount >= totalTitles;
@@ -449,22 +348,17 @@ async function processMissingTitlesInBackground(
   // Gentle GET requests for subpage HTML parsing (batchSize=2, delay=180ms for optimal rate-limit safety & MV3 stability)
   try {
     await fetchInBatches(missingTitles, 2, 180, async (rawTitle) => {
-      const titleKey = rawTitle.replace(/_/g, ' ');
-      let targetObj = warningCache[titleKey.toLowerCase()];
+      const key = titleKey(rawTitle);
+      let targetObj = warningCache[key];
       if (!targetObj) {
-        targetObj = {
-          hasWildernessWarning: false,
-          hasWarning: false,
-          inputCost: 0,
-          grossOutput: 0,
-          roi: 99999,
-          outputVolume: 0,
-          xpGained: [],
-          finParsed: false
-        };
-        warningCache[titleKey.toLowerCase()] = targetObj;
+        targetObj = emptyWarning();
+        warningCache[key] = targetObj;
       }
 
+      // Only mark a subpage as parsed when we genuinely got a parsed response.
+      // A network error / non-ok / missing `parse` leaves finParsed=false so the
+      // next sync retries it instead of caching zeroed financials for 6 hours.
+      let parsedOk = false;
       try {
         const parseUrl = `https://oldschool.runescape.wiki/api.php?action=parse&page=${encodeURIComponent(rawTitle)}&prop=text|categories|templates&format=json&origin=*`;
         const pRes = await fetchWithBackoff(parseUrl, 3);
@@ -488,13 +382,13 @@ async function processMissingTitlesInBackground(
             targetObj.hasWildernessWarning = risk.hasWildernessWarning;
             targetObj.hasWarning = risk.hasWarning;
             targetObj.xpGained = xpList;
+            parsedOk = true;
           }
         }
       } catch (fetchErr) {
         console.warn(`[OSRS Filter Debug] Subpage parse failed for "${rawTitle}":`, fetchErr);
-      } finally {
-        targetObj.finParsed = true;
       }
+      targetObj.finParsed = parsedOk;
     }, sendProgressUpdate);
   } catch (err) {
     console.error('[OSRS Filter Debug] Financial parsing batch error:', err);
@@ -502,171 +396,6 @@ async function processMissingTitlesInBackground(
   } finally {
     sendProgressUpdate();
   }
-}
-
-const COMBAT_TITLE_PREFIXES = [
-  'killing', 'chambers of', 'theatre of', 'tombs of', 'moons of', 'barrows',
-  'fortis colosseum', 'the gauntlet', 'the corrupted gauntlet', 'last man standing'
-];
-
-const ITEM_CREATION_KEYWORDS = [
-  'smelting', 'tanning', 'making', 'fletching', 'cooking', 'crafting',
-  'grinding', 'crushing', 'casting', 'enchanting', 'charging', 'cleaning',
-  'collecting', 'cutting', 'opening', 'exchanging', 'stringing', 'humidifying',
-  'decanting', 'baking', 'brewing', 'spinning', 'mining', 'catching',
-  'hunting', 'harvesting', 'picking', 'chopping', 'buying', 'plucking'
-];
-
-function isVolumeApplicable(
-  rawTitle: string,
-  categories: ParseCategory[],
-  outputItemCount: number
-): boolean {
-  const subpageTitle = rawTitle.replace(/^Money making guide\//i, '').toLowerCase();
-
-  // Exclude combat, bossing, or raid methods
-  if (COMBAT_TITLE_PREFIXES.some((p) => subpageTitle.includes(p))) return false;
-  if (categories.some((c) => (c['*'] || c.name || '').includes('MMG/Combat'))) return false;
-
-  // Must have 1 or 2 focused output items (not a multi-item drop table)
-  if (outputItemCount < 1 || outputItemCount > 2) return false;
-
-  // Check if title or category indicates item creation / processing / collecting
-  const isCreationTitle = ITEM_CREATION_KEYWORDS.some((k) => subpageTitle.includes(k));
-  const isCreationCategory = categories.some((c) => {
-    const catName = c['*'] || c.name || '';
-    return catName.includes('MMG/Processing') || catName.includes('MMG/Collecting');
-  });
-
-  return isCreationTitle || isCreationCategory;
-}
-
-function extractXpGainedFromHtml(html: string): XpGained[] {
-  if (!html) return [];
-  let cleanHtml = html;
-  const navboxIndex = cleanHtml.search(/<table[^>]*class="[^"]*navbox/i);
-  if (navboxIndex !== -1) {
-    cleanHtml = cleanHtml.substring(0, navboxIndex);
-  }
-
-  const results: XpGained[] = [];
-  const expMatch = cleanHtml.match(/Experience gained[\s\S]*?<\/th>[\s\S]*?<td>([\s\S]*?)<\/td>/i) ||
-                   cleanHtml.match(/<th[^>]*>[\s]*Experience gained[\s]*<\/th>\s*<\/tr>\s*<tr>[\s\S]*?<\/td>\s*<td>([\s\S]*?)<\/td>/i);
-
-  const targetHtml = expMatch ? expMatch[1] : cleanHtml;
-  const scpRegex = /data-skill="([^"]+)"[^>]*data-level="([^"]+)"/g;
-  let match: RegExpExecArray | null;
-
-  if (expMatch) {
-    while ((match = scpRegex.exec(targetHtml)) !== null) {
-      const skill = match[1].trim();
-      const amountStr = match[2].replace(/,/g, '').replace(/\+/g, '').trim();
-      const amount = parseInt(amountStr, 10);
-      if (skill && !isNaN(amount) && skill.toLowerCase() !== 'achievement diary' && amount > 0) {
-        results.push({ skill, xp: amount });
-      }
-    }
-  }
-
-  if (results.length === 0) {
-    const mmgXpRegex = /<span[^>]*class="[^"]*mmg-xpline[^"]*"[\s\S]*?<span[^>]*data-skill="([^"]+)"[^>]*data-level="([^"]+)"/g;
-    while ((match = mmgXpRegex.exec(cleanHtml)) !== null) {
-      const skill = match[1].trim();
-      const amountStr = match[2].replace(/,/g, '').replace(/\+/g, '').trim();
-      const amount = parseInt(amountStr, 10);
-      if (skill && !isNaN(amount) && skill.toLowerCase() !== 'achievement diary' && amount > 0) {
-        results.push({ skill, xp: amount });
-      }
-    }
-  }
-
-  const skillMap = new Map<string, XpGained>();
-  for (const item of results) {
-    const existing = skillMap.get(item.skill);
-    if (!existing || item.xp > existing.xp) {
-      skillMap.set(item.skill, item);
-    }
-  }
-
-  return Array.from(skillMap.values());
-}
-
-function parseMmgFinancialsFromHtml(
-  html: string,
-  volumeMap: Record<string, number> = {},
-  rawTitle = '',
-  categories: ParseCategory[] = []
-): Financials {
-  if (!html) return { inputCost: 0, grossOutput: 0, roi: 99999, outputVolume: 0 };
-  let totalInput = 0;
-  let totalOutput = 0;
-
-  const inputMatches = html.match(/class="[^"]*mmg-input[^"]*"[\s\S]*?<span class="coins[^"]*">([\d,]+)<\/span>/gi) || [];
-  inputMatches.forEach((m) => {
-    const numMatch = m.match(/<span class="coins[^"]*">([\d,]+)<\/span>/i);
-    if (numMatch) {
-      const val = parseInt(numMatch[1].replace(/,/g, ''), 10);
-      if (!isNaN(val)) totalInput += val;
-    }
-  });
-
-  const outputMatches = html.match(/class="[^"]*mmg-output[^"]*"[\s\S]*?<span class="coins[^"]*">([\d,]+)<\/span>/gi) || [];
-  outputMatches.forEach((m) => {
-    const numMatch = m.match(/<span class="coins[^"]*">([\d,]+)<\/span>/i);
-    if (numMatch) {
-      const val = parseInt(numMatch[1].replace(/,/g, ''), 10);
-      if (!isNaN(val)) totalOutput += val;
-    }
-  });
-
-  const netProfit = totalOutput - totalInput;
-  const roi = totalInput > 0 ? (netProfit / totalInput) * 100 : 99999;
-
-  let minOutputVolume = Infinity;
-  let outputItemCount = 0;
-  if (volumeMap && Object.keys(volumeMap).length > 0) {
-    const outputBlocks = html.match(/class="[^"]*mmg-output[^"]*"[\s\S]*?(?=<span\s+class="[^"]*mmg-itemline|<\/td>|<\/div>|$)/gi) || [];
-    const outputItemNames = new Set<string>();
-
-    outputBlocks.forEach((block) => {
-      const linkMatches = block.match(/<a[^>]*title="([^"]+)"[^>]*>/gi) || [];
-      linkMatches.forEach((tag) => {
-        const titleMatch = tag.match(/title="([^"]+)"/i);
-        if (titleMatch) {
-          const name = titleMatch[1].trim().toLowerCase();
-          if (
-            name !== 'coins' &&
-            !name.includes(':') &&
-            !name.includes('money making') &&
-            !name.includes('grand exchange') &&
-            !name.includes('ge tax') &&
-            !name.includes('convenience fee')
-          ) {
-            outputItemNames.add(name);
-          }
-        }
-      });
-    });
-
-    outputItemCount = outputItemNames.size;
-    for (const itemName of outputItemNames) {
-      if (volumeMap[itemName] !== undefined && volumeMap[itemName] > 0) {
-        const vol = volumeMap[itemName];
-        if (vol < minOutputVolume) minOutputVolume = vol;
-      }
-    }
-  }
-
-  const outputVolume = (minOutputVolume !== Infinity && isVolumeApplicable(rawTitle, categories, outputItemCount))
-    ? minOutputVolume
-    : 0;
-
-  return {
-    inputCost: totalInput,
-    grossOutput: totalOutput,
-    roi: Math.round(roi),
-    outputVolume
-  };
 }
 
 async function handleFetchPlayerStats(username: string): Promise<PlayerStats | null> {
