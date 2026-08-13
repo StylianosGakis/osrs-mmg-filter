@@ -16,7 +16,7 @@ This file provides architectural context, implementation rules, and developer in
 ## 📁 File Structure & Responsibilities
 
 1. [`manifest.json`](file:///Users/stylianosgakis/PersonalProjects/OSRS-wiki-money-making-filter-plugin/manifest.json)
-   - **Manifest V3** configuration (Version `1.0.0`).
+   - **Manifest V3** configuration (Version `1.0.1`).
    - Defines extension action and icon assets (`icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png`).
    - Includes `"permissions": ["storage"]` for filter state persistence.
    - Includes `"host_permissions": ["https://api.wiseoldman.net/*", "https://secure.runescape.com/*", "https://oldschool.runescape.wiki/*", "https://*.runescape.wiki/*"]`.
@@ -81,7 +81,7 @@ This file provides architectural context, implementation rules, and developer in
 >  * Source: https://github.com/StylianosGakis/osrs-mmg-filter
 >  */
 > ```
-> **Note:** Do NOT use angle-bracket URL syntax (`<https://...>`) in `.svelte` files — the Svelte compiler parses `<...>` as HTML tags and will throw errors. Use plain URLs as shown above.
+> **Note:** In `.svelte` files, the comment header MUST be placed inside the `<script>` tag (e.g. immediately after `<script lang="ts">`). Placing comment blocks outside `<script>` causes the Svelte compiler to render them as visible HTML template text in the DOM. Also, do NOT use angle-bracket URL syntax (`<https://...>`) in `.svelte` files — the Svelte compiler parses `<...>` as HTML tags and will throw errors. Use plain URLs as shown above.
 
 ---
 
@@ -98,7 +98,7 @@ npm test        # vitest: all 27 tests must pass
 To verify AGPL headers are present on all source files:
 ```bash
 for f in background.js $(find src -name '*.ts' -o -name '*.svelte'); do
-  head -1 "$f" | grep -q 'OSRS MMG Filter' || echo "MISSING HEADER: $f"
+  head -3 "$f" | grep -q 'OSRS MMG Filter' || echo "MISSING HEADER: $f"
 done
 ```
 
