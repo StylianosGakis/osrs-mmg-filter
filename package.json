@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && cp manifest.json background.js dist/ && cp -r icons dist/",
+    "build": "npm run check && vite build && vite build --mode background && cp manifest.json dist/ && cp -r icons dist/",
     "zip": "npm run build && (cd dist && zip -r -X ../osrs-money-making-filter.zip . -x '*.DS_Store' -x '*/.*')",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",

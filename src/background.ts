@@ -22,7 +22,36 @@
  * Handles cross-origin API calls to Jagex Hiscores, Wise Old Man API, and MediaWiki API
  */
 
-let warningCache = {};
+import type { PlayerStats, SubpageWarning, XpGained } from './types';
+
+/** MediaWiki action=parse category entry (shape varies by API version). */
+interface ParseCategory {
+  '*'?: string;
+  title?: string;
+  name?: string;
+}
+
+/** MediaWiki action=parse template entry. */
+interface ParseTemplate {
+  '*'?: string;
+  title?: string;
+}
+
+/** Financial metrics parsed out of a rendered MMG subpage. */
+interface Financials {
+  inputCost: number;
+  grossOutput: number;
+  roi: number;
+  outputVolume: number;
+}
+
+/** Risk flags derived from a rendered MMG subpage. */
+interface RiskFlags {
+  hasWildernessWarning: boolean;
+  hasWarning: boolean;
+}
+
+let warningCache: Record<string, SubpageWarning> = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 Hours
 const CACHE_STORAGE_KEY = 'mmgCache_v8';
 
@@ -41,16 +70,18 @@ const WILDERNESS_WIKITEXT_KEYWORDS = [
   'calvar\'ion', 'calvarion', 'zombie pirate'
 ];
 
-let volumeMapCache = null;
+let volumeMapCache: Record<string, number> | null = null;
 let volumeMapFetchTime = 0;
 
-async function getVolumeMap() {
+async function getVolumeMap(): Promise<Record<string, number>> {
   if (volumeMapCache && (Date.now() - volumeMapFetchTime < CACHE_TTL_MS)) {
     return volumeMapCache;
   }
 
   if (chrome?.storage?.local) {
-    const stored = await new Promise(r => chrome.storage.local.get(['volumeMapCache', 'volumeMapFetchTime'], r));
+    const stored = await new Promise<{ volumeMapCache?: Record<string, number>; volumeMapFetchTime?: number }>(
+      (r) => chrome.storage.local.get(['volumeMapCache', 'volumeMapFetchTime'], r)
+    );
     if (stored?.volumeMapCache && stored?.volumeMapFetchTime && (Date.now() - stored.volumeMapFetchTime < CACHE_TTL_MS)) {
       volumeMapCache = stored.volumeMapCache;
       volumeMapFetchTime = stored.volumeMapFetchTime;
@@ -67,11 +98,11 @@ async function getVolumeMap() {
     if (mappingRes && mappingRes.ok && volRes && volRes.ok) {
       const mapping = await mappingRes.json();
       const volData = await volRes.json();
-      const map = {};
+      const map: Record<string, number> = {};
       const volumes = volData?.data || {};
 
       if (Array.isArray(mapping)) {
-        mapping.forEach(item => {
+        mapping.forEach((item) => {
           if (item?.id && item?.name) {
             const itemVol = volumes[item.id];
             const totalVol = (itemVol?.highPriceVolume || 0) + (itemVol?.lowPriceVolume || 0);
@@ -99,12 +130,13 @@ async function getVolumeMap() {
 
 
 // Load persistent cache from chrome.storage.local on startup
-let hydrationPromise = null;
+let hydrationPromise: Promise<void> | null = null;
 if (chrome?.storage?.local) {
   hydrationPromise = new Promise((resolve) => {
     chrome.storage.local.get([CACHE_STORAGE_KEY, 'mmgCacheTime'], (res) => {
-      if (res?.[CACHE_STORAGE_KEY] && res?.mmgCacheTime) {
-        if (Date.now() - res.mmgCacheTime < CACHE_TTL_MS) {
+      const cacheTime = res?.mmgCacheTime as number | undefined;
+      if (res?.[CACHE_STORAGE_KEY] && cacheTime) {
+        if (Date.now() - cacheTime < CACHE_TTL_MS) {
           Object.assign(warningCache, res[CACHE_STORAGE_KEY]);
         }
       }
@@ -115,7 +147,7 @@ if (chrome?.storage?.local) {
   hydrationPromise = Promise.resolve();
 }
 
-function persistCache() {
+function persistCache(): void {
   if (chrome?.storage?.local) {
     chrome.storage.local.set({
       [CACHE_STORAGE_KEY]: warningCache,
@@ -128,7 +160,11 @@ function persistCache() {
 let globalRateLimitUntil = 0;
 
 // Helper function for network requests with exponential backoff, global 429 pause, and Retry-After support
-async function fetchWithBackoff(url, options = {}, maxAttempts = 5) {
+async function fetchWithBackoff(
+  url: string,
+  options: RequestInit | number = {},
+  maxAttempts = 5
+): Promise<Response | null> {
   if (typeof options === 'number') {
     maxAttempts = options;
     options = {};
@@ -141,7 +177,7 @@ async function fetchWithBackoff(url, options = {}, maxAttempts = 5) {
     const now = Date.now();
     if (globalRateLimitUntil > now) {
       const waitTime = globalRateLimitUntil - now;
-      await new Promise(r => setTimeout(r, waitTime));
+      await new Promise((r) => setTimeout(r, waitTime));
     }
 
     try {
@@ -151,35 +187,46 @@ async function fetchWithBackoff(url, options = {}, maxAttempts = 5) {
         const delay = retryAfter ? (parseInt(retryAfter, 10) * 1000) : Math.min(8000, 2000 * Math.pow(2, attempts - 1));
         globalRateLimitUntil = Math.max(globalRateLimitUntil, Date.now() + delay);
         console.warn(`[OSRS Filter Debug] HTTP 429 Rate Limited. Pausing outgoing requests globally for ${delay}ms (Attempt ${attempts}/${maxAttempts})`);
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise((r) => setTimeout(r, delay));
         continue;
       }
       return res;
     } catch (err) {
       const delay = 1000 * Math.pow(2, attempts - 1);
       if (attempts >= maxAttempts) throw err;
-      await new Promise(r => setTimeout(r, delay));
+      await new Promise((r) => setTimeout(r, delay));
     }
   }
   return null;
 }
 
-async function fetchInBatches(items, batchSize, delayMs, workerFn, onBatchComplete) {
+async function fetchInBatches<T>(
+  items: T[],
+  batchSize: number,
+  delayMs: number,
+  workerFn: (item: T) => Promise<void>,
+  onBatchComplete?: () => void | Promise<void>
+): Promise<void> {
   for (let i = 0; i < items.length; i += batchSize) {
     const batch = items.slice(i, i + batchSize);
     await Promise.all(batch.map(workerFn));
     if (onBatchComplete) {
       try {
         await onBatchComplete();
-      } catch (e) {}
+      } catch (e) { /* ignore progress-callback errors */ }
     }
     if (i + batchSize < items.length && delayMs > 0) {
-      await new Promise(r => setTimeout(r, delayMs));
+      await new Promise((r) => setTimeout(r, delayMs));
     }
   }
 }
 
-function sendTabLog(tabId, level, message, details = null) {
+function sendTabLog(
+  tabId: number | undefined,
+  level: 'log' | 'warn' | 'error' | 'info',
+  message: string,
+  details: string | null = null
+): void {
   if (chrome?.tabs && tabId) {
     try {
       chrome.tabs.sendMessage(tabId, {
@@ -197,23 +244,23 @@ function sendTabLog(tabId, level, message, details = null) {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'fetchPlayerStats') {
     handleFetchPlayerStats(request.username)
-      .then(stats => sendResponse({ success: true, stats }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .then((stats) => sendResponse({ success: true, stats }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true; // Keep message channel open for async sendResponse
   }
 
   if (request.action === 'checkPageWarnings') {
     const tabId = sender?.tab?.id;
     handleCheckPageWarnings(request.pageTitles, tabId)
-      .then(warningMap => sendResponse({ success: true, warningMap }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .then((warningMap) => sendResponse({ success: true, warningMap }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (request.action === 'purgeFinancialCache') {
     const tabId = sender?.tab?.id;
     if (Array.isArray(request.pageTitles) && request.pageTitles.length > 0) {
-      request.pageTitles.forEach(t => {
+      request.pageTitles.forEach((t: string) => {
         const norm = t.replace(/_/g, ' ');
         delete warningCache[norm.toLowerCase()];
       });
@@ -225,13 +272,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
     }
     handleCheckPageWarnings(request.pageTitles, tabId)
-      .then(warningMap => sendResponse({ success: true, warningMap }))
-      .catch(err => sendResponse({ success: false, error: err.message }));
+      .then((warningMap) => sendResponse({ success: true, warningMap }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
 });
 
-async function handleCheckPageWarnings(pageTitles, tabId) {
+async function handleCheckPageWarnings(
+  pageTitles: string[],
+  tabId: number | undefined
+): Promise<Record<string, SubpageWarning>> {
   if (!Array.isArray(pageTitles) || pageTitles.length === 0) {
     return {};
   }
@@ -240,11 +290,11 @@ async function handleCheckPageWarnings(pageTitles, tabId) {
     await hydrationPromise;
   }
 
-  const normalizedTitles = pageTitles.map(t => t.replace(/_/g, ' '));
+  const normalizedTitles = pageTitles.map((t) => t.replace(/_/g, ' '));
 
-  const getResultMap = () => {
-    const res = {};
-    normalizedTitles.forEach(t => {
+  const getResultMap = (): Record<string, SubpageWarning> => {
+    const res: Record<string, SubpageWarning> = {};
+    normalizedTitles.forEach((t) => {
       res[t] = warningCache[t.toLowerCase()] || {
         hasWildernessWarning: false,
         hasWarning: false,
@@ -260,7 +310,7 @@ async function handleCheckPageWarnings(pageTitles, tabId) {
   };
 
   // Only skip titles if they are in warningCache AND have successfully parsed financials (finParsed)
-  const missingTitles = normalizedTitles.filter(t => {
+  const missingTitles = normalizedTitles.filter((t) => {
     const cached = warningCache[t.toLowerCase()];
     return !cached || !cached.finParsed;
   });
@@ -274,7 +324,11 @@ async function handleCheckPageWarnings(pageTitles, tabId) {
   return getResultMap();
 }
 
-function extractRiskFromParseData(html, categories = [], templates = []) {
+function extractRiskFromParseData(
+  html: string,
+  categories: ParseCategory[] = [],
+  templates: ParseTemplate[] = []
+): RiskFlags {
   let hasWildernessWarning = false;
   let hasWarning = false;
 
@@ -284,12 +338,12 @@ function extractRiskFromParseData(html, categories = [], templates = []) {
   if (navboxIndex !== -1) {
     cleanHtml = cleanHtml.substring(0, navboxIndex);
   }
-  
+
   const htmlLower = cleanHtml.toLowerCase();
 
   // Check page categories
   if (Array.isArray(categories)) {
-    categories.forEach(c => {
+    categories.forEach((c) => {
       const cTitle = (c['*'] || c.title || '').toLowerCase();
       if (cTitle.includes('mmg/risky') || cTitle.includes('risky')) {
         hasWarning = true;
@@ -303,7 +357,7 @@ function extractRiskFromParseData(html, categories = [], templates = []) {
 
   // Check page templates
   if (Array.isArray(templates)) {
-    templates.forEach(t => {
+    templates.forEach((t) => {
       const tName = (t['*'] || t.title || '').toLowerCase();
       if (
         tName.includes('wilderness') ||
@@ -334,7 +388,7 @@ function extractRiskFromParseData(html, categories = [], templates = []) {
 
   // Check wikitext warning text rendered in HTML
 
-  if (WILDERNESS_WIKITEXT_KEYWORDS.some(kw => htmlLower.includes(kw))) {
+  if (WILDERNESS_WIKITEXT_KEYWORDS.some((kw) => htmlLower.includes(kw))) {
     if (htmlLower.includes('warning') || htmlLower.includes('notice') || htmlLower.includes('danger') || htmlLower.includes('risk') || htmlLower.includes('wilderness')) {
       hasWildernessWarning = true;
       hasWarning = true;
@@ -344,19 +398,23 @@ function extractRiskFromParseData(html, categories = [], templates = []) {
   return { hasWildernessWarning, hasWarning };
 }
 
-async function processMissingTitlesInBackground(missingTitles, normalizedTitles, tabId) {
+async function processMissingTitlesInBackground(
+  missingTitles: string[],
+  normalizedTitles: string[],
+  tabId: number | undefined
+): Promise<void> {
   sendTabLog(tabId, 'info', `Starting background metrics sync for ${missingTitles.length} methods...`);
 
-  let volumeMap = {};
+  let volumeMap: Record<string, number> = {};
   try {
     volumeMap = await getVolumeMap();
   } catch (volErr) {
-    sendTabLog(tabId, 'warn', 'Failed to fetch OSRS volume map.', volErr?.message);
+    sendTabLog(tabId, 'warn', 'Failed to fetch OSRS volume map.', (volErr as Error)?.message);
   }
 
-  const getResultMap = () => {
-    const res = {};
-    normalizedTitles.forEach(t => {
+  const getResultMap = (): Record<string, SubpageWarning> => {
+    const res: Record<string, SubpageWarning> = {};
+    normalizedTitles.forEach((t) => {
       res[t] = warningCache[t.toLowerCase()];
     });
     return res;
@@ -364,10 +422,10 @@ async function processMissingTitlesInBackground(missingTitles, normalizedTitles,
 
   const totalTitles = normalizedTitles.length;
 
-  const sendProgressUpdate = () => {
+  const sendProgressUpdate = (): void => {
     persistCache();
     let parsedCount = 0;
-    normalizedTitles.forEach(t => {
+    normalizedTitles.forEach((t) => {
       const obj = warningCache[t.toLowerCase()];
       if (obj && obj.finParsed) parsedCount++;
     });
@@ -381,7 +439,7 @@ async function processMissingTitlesInBackground(missingTitles, normalizedTitles,
           totalTitles,
           isComplete
         });
-      } catch (e) {}
+      } catch (e) { /* tab closed/unavailable */ }
     }
   };
 
@@ -440,7 +498,7 @@ async function processMissingTitlesInBackground(missingTitles, normalizedTitles,
     }, sendProgressUpdate);
   } catch (err) {
     console.error('[OSRS Filter Debug] Financial parsing batch error:', err);
-    sendTabLog(tabId, 'error', 'Financial parsing batch error: ' + (err?.message || err));
+    sendTabLog(tabId, 'error', 'Financial parsing batch error: ' + ((err as Error)?.message || err));
   } finally {
     sendProgressUpdate();
   }
@@ -459,19 +517,23 @@ const ITEM_CREATION_KEYWORDS = [
   'hunting', 'harvesting', 'picking', 'chopping', 'buying', 'plucking'
 ];
 
-function isVolumeApplicable(rawTitle, categories, outputItemCount) {
+function isVolumeApplicable(
+  rawTitle: string,
+  categories: ParseCategory[],
+  outputItemCount: number
+): boolean {
   const subpageTitle = rawTitle.replace(/^Money making guide\//i, '').toLowerCase();
 
   // Exclude combat, bossing, or raid methods
-  if (COMBAT_TITLE_PREFIXES.some(p => subpageTitle.includes(p))) return false;
-  if (categories.some(c => (c['*'] || c.name || '').includes('MMG/Combat'))) return false;
+  if (COMBAT_TITLE_PREFIXES.some((p) => subpageTitle.includes(p))) return false;
+  if (categories.some((c) => (c['*'] || c.name || '').includes('MMG/Combat'))) return false;
 
   // Must have 1 or 2 focused output items (not a multi-item drop table)
   if (outputItemCount < 1 || outputItemCount > 2) return false;
 
   // Check if title or category indicates item creation / processing / collecting
-  const isCreationTitle = ITEM_CREATION_KEYWORDS.some(k => subpageTitle.includes(k));
-  const isCreationCategory = categories.some(c => {
+  const isCreationTitle = ITEM_CREATION_KEYWORDS.some((k) => subpageTitle.includes(k));
+  const isCreationCategory = categories.some((c) => {
     const catName = c['*'] || c.name || '';
     return catName.includes('MMG/Processing') || catName.includes('MMG/Collecting');
   });
@@ -479,7 +541,7 @@ function isVolumeApplicable(rawTitle, categories, outputItemCount) {
   return isCreationTitle || isCreationCategory;
 }
 
-function extractXpGainedFromHtml(html) {
+function extractXpGainedFromHtml(html: string): XpGained[] {
   if (!html) return [];
   let cleanHtml = html;
   const navboxIndex = cleanHtml.search(/<table[^>]*class="[^"]*navbox/i);
@@ -487,13 +549,13 @@ function extractXpGainedFromHtml(html) {
     cleanHtml = cleanHtml.substring(0, navboxIndex);
   }
 
-  const results = [];
+  const results: XpGained[] = [];
   const expMatch = cleanHtml.match(/Experience gained[\s\S]*?<\/th>[\s\S]*?<td>([\s\S]*?)<\/td>/i) ||
                    cleanHtml.match(/<th[^>]*>[\s]*Experience gained[\s]*<\/th>\s*<\/tr>\s*<tr>[\s\S]*?<\/td>\s*<td>([\s\S]*?)<\/td>/i);
 
   const targetHtml = expMatch ? expMatch[1] : cleanHtml;
   const scpRegex = /data-skill="([^"]+)"[^>]*data-level="([^"]+)"/g;
-  let match;
+  let match: RegExpExecArray | null;
 
   if (expMatch) {
     while ((match = scpRegex.exec(targetHtml)) !== null) {
@@ -518,7 +580,7 @@ function extractXpGainedFromHtml(html) {
     }
   }
 
-  const skillMap = new Map();
+  const skillMap = new Map<string, XpGained>();
   for (const item of results) {
     const existing = skillMap.get(item.skill);
     if (!existing || item.xp > existing.xp) {
@@ -529,13 +591,18 @@ function extractXpGainedFromHtml(html) {
   return Array.from(skillMap.values());
 }
 
-function parseMmgFinancialsFromHtml(html, volumeMap = {}, rawTitle = '', categories = []) {
+function parseMmgFinancialsFromHtml(
+  html: string,
+  volumeMap: Record<string, number> = {},
+  rawTitle = '',
+  categories: ParseCategory[] = []
+): Financials {
   if (!html) return { inputCost: 0, grossOutput: 0, roi: 99999, outputVolume: 0 };
   let totalInput = 0;
   let totalOutput = 0;
 
   const inputMatches = html.match(/class="[^"]*mmg-input[^"]*"[\s\S]*?<span class="coins[^"]*">([\d,]+)<\/span>/gi) || [];
-  inputMatches.forEach(m => {
+  inputMatches.forEach((m) => {
     const numMatch = m.match(/<span class="coins[^"]*">([\d,]+)<\/span>/i);
     if (numMatch) {
       const val = parseInt(numMatch[1].replace(/,/g, ''), 10);
@@ -544,7 +611,7 @@ function parseMmgFinancialsFromHtml(html, volumeMap = {}, rawTitle = '', categor
   });
 
   const outputMatches = html.match(/class="[^"]*mmg-output[^"]*"[\s\S]*?<span class="coins[^"]*">([\d,]+)<\/span>/gi) || [];
-  outputMatches.forEach(m => {
+  outputMatches.forEach((m) => {
     const numMatch = m.match(/<span class="coins[^"]*">([\d,]+)<\/span>/i);
     if (numMatch) {
       const val = parseInt(numMatch[1].replace(/,/g, ''), 10);
@@ -559,11 +626,11 @@ function parseMmgFinancialsFromHtml(html, volumeMap = {}, rawTitle = '', categor
   let outputItemCount = 0;
   if (volumeMap && Object.keys(volumeMap).length > 0) {
     const outputBlocks = html.match(/class="[^"]*mmg-output[^"]*"[\s\S]*?(?=<span\s+class="[^"]*mmg-itemline|<\/td>|<\/div>|$)/gi) || [];
-    const outputItemNames = new Set();
+    const outputItemNames = new Set<string>();
 
-    outputBlocks.forEach(block => {
+    outputBlocks.forEach((block) => {
       const linkMatches = block.match(/<a[^>]*title="([^"]+)"[^>]*>/gi) || [];
-      linkMatches.forEach(tag => {
+      linkMatches.forEach((tag) => {
         const titleMatch = tag.match(/title="([^"]+)"/i);
         if (titleMatch) {
           const name = titleMatch[1].trim().toLowerCase();
@@ -602,7 +669,7 @@ function parseMmgFinancialsFromHtml(html, volumeMap = {}, rawTitle = '', categor
   };
 }
 
-async function handleFetchPlayerStats(username) {
+async function handleFetchPlayerStats(username: string): Promise<PlayerStats | null> {
   const cleanUsername = username.trim();
   if (!cleanUsername) return null;
 
@@ -614,8 +681,8 @@ async function handleFetchPlayerStats(username) {
       const data = await res.json();
       if (data?.latestSnapshot?.data?.skills) {
         const rawSkills = data.latestSnapshot.data.skills;
-        const stats = {};
-        for (const [skillKey, skillData] of Object.entries(rawSkills)) {
+        const stats: PlayerStats = {};
+        for (const [skillKey, skillData] of Object.entries<{ level?: number }>(rawSkills)) {
           if (skillData && typeof skillData.level === 'number') {
             stats[skillKey.toLowerCase()] = skillData.level;
           }
@@ -634,8 +701,8 @@ async function handleFetchPlayerStats(username) {
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data?.skills)) {
-        const stats = {};
-        data.skills.forEach(s => {
+        const stats: PlayerStats = {};
+        data.skills.forEach((s: { name?: string; level?: number }) => {
           if (s.name && typeof s.level === 'number') {
             stats[s.name.toLowerCase()] = s.level > 0 ? s.level : (s.name.toLowerCase() === 'hitpoints' ? 10 : 1);
           }
@@ -653,15 +720,14 @@ async function handleFetchPlayerStats(username) {
     const res = await fetch(csvUrl);
     if (res.ok) {
       const csvText = await res.text();
-      const lines = csvText.split('
-');
+      const lines = csvText.split(/\r?\n/);
       const jagexSkillsOrder = [
         'overall', 'attack', 'defence', 'strength', 'hitpoints', 'ranged',
         'prayer', 'magic', 'cooking', 'woodcutting', 'fletching', 'fishing',
         'firemaking', 'crafting', 'smithing', 'mining', 'herblore', 'agility',
         'thieving', 'slayer', 'farming', 'runecraft', 'hunter', 'construction'
       ];
-      const stats = {};
+      const stats: PlayerStats = {};
       jagexSkillsOrder.forEach((skill, index) => {
         if (lines[index]) {
           const parts = lines[index].split(',');
