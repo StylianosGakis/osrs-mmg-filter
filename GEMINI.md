@@ -16,7 +16,7 @@ This file provides architectural context, implementation rules, and developer in
 ## 📁 File Structure & Responsibilities
 
 1. [`manifest.json`](file:///Users/stylianosgakis/PersonalProjects/OSRS-wiki-money-making-filter-plugin/manifest.json)
-   - **Manifest V3** configuration (Version `1.0.2`).
+   - **Manifest V3** configuration (Version `1.0.3`).
    - Defines extension action and icon assets (`icons/icon16.png`, `icons/icon48.png`, `icons/icon128.png`).
    - Includes `"permissions": ["storage"]` for filter state persistence.
    - Includes `"host_permissions": ["https://api.wiseoldman.net/*", "https://secure.runescape.com/*", "https://oldschool.runescape.wiki/*", "https://*.runescape.wiki/*"]`.
