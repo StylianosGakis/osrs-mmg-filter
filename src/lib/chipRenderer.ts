@@ -81,21 +81,20 @@ export function renderChipsForCell(
       removeEl(chipContainer, '.osrs-chip-loading');
 
       // ROI chip
-      const roiText = roi >= 999 ? '50%+' : `${roi}%`;
-      const roiDetail = roi >= 999 ? '50% or higher' : `${roi}%`;
+      const roiText = `${roi}%`;
       const inputFormatted = formatGp(inputCost);
       if (roi >= 50) {
         renderRoiChip(roiChip, 'osrs-chip-roi-high',
           `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiDetail} profit return relative to supply input cost (${inputFormatted} GP/hr input). High margin!`);
+          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). High margin!`);
       } else if (roi >= 15) {
         renderRoiChip(roiChip, 'osrs-chip-roi-mod',
           `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiDetail} profit return relative to supply input cost (${inputFormatted} GP/hr input). Moderate margin.`);
+          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Moderate margin.`);
       } else {
         renderRoiChip(roiChip, 'osrs-chip-roi-low',
           `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiDetail} profit return relative to supply input cost (${inputFormatted} GP/hr input). Thin margin!`);
+          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Thin margin!`);
       }
 
       // Budget chip
