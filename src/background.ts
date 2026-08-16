@@ -25,7 +25,7 @@
  * this file is only responsible for networking, caching, and messaging.
  */
 
-import type { PlayerStats, SubpageWarning } from './types';
+import { ROI_UNAVAILABLE, type PlayerStats, type SubpageWarning } from './types';
 import {
   parseMmgFinancialsFromHtml,
   extractRiskFromParseData,
@@ -44,7 +44,7 @@ function emptyWarning(): SubpageWarning {
     hasWarning: false,
     inputCost: 0,
     grossOutput: 0,
-    roi: 99999,
+    roi: ROI_UNAVAILABLE,
     outputVolume: 0,
     xpGained: [],
     finParsed: false,

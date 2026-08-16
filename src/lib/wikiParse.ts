@@ -27,7 +27,7 @@
  * are covered by fixture-based tests in __tests__/wikiParse.test.ts.
  */
 
-import type { XpGained } from '../types';
+import { ROI_UNAVAILABLE, type XpGained } from '../types';
 import { WILDERNESS_WIKITEXT_KEYWORDS, RISK_SIGNAL_WORDS } from './riskKeywords';
 
 /** MediaWiki action=parse category entry (shape varies by API version). */
@@ -153,7 +153,7 @@ export function parseMmgFinancialsFromHtml(
   rawTitle = '',
   categories: ParseCategory[] = []
 ): Financials {
-  if (!html) return { inputCost: 0, grossOutput: 0, roi: 99999, outputVolume: 0 };
+  if (!html) return { inputCost: 0, grossOutput: 0, roi: ROI_UNAVAILABLE, outputVolume: 0 };
   let totalInput = 0;
   let totalOutput = 0;
 
@@ -176,7 +176,7 @@ export function parseMmgFinancialsFromHtml(
   });
 
   const netProfit = totalOutput - totalInput;
-  const roi = totalInput > 0 ? (netProfit / totalInput) * 100 : 99999;
+  const roi = totalInput > 0 ? (netProfit / totalInput) * 100 : ROI_UNAVAILABLE;
 
   let minOutputVolume = Infinity;
   let outputItemCount = 0;

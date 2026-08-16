@@ -33,24 +33,24 @@
 
   const budgetOptions = [
     { value: 'none', label: 'All', title: 'Show methods requiring any upfront budget' },
-    { value: '100k', label: '<100k', title: 'Max 100,000 GP hourly supply input cost' },
-    { value: '1m', label: '<1M', title: 'Max 1,000,000 GP hourly supply input cost' },
-    { value: '5m', label: '<5M', title: 'Max 5,000,000 GP hourly supply input cost' },
-    { value: '10m', label: '<10M', title: 'Max 10,000,000 GP hourly supply input cost' }
+    { value: '100k', label: '≤100k', title: 'Max 100,000 GP hourly supply input cost' },
+    { value: '1m', label: '≤1M', title: 'Max 1,000,000 GP hourly supply input cost' },
+    { value: '5m', label: '≤5M', title: 'Max 5,000,000 GP hourly supply input cost' },
+    { value: '10m', label: '≤10M', title: 'Max 10,000,000 GP hourly supply input cost' }
   ];
 
   const marginOptions = [
     { value: 'none', label: 'All', title: 'Show methods with any profit margin' },
-    { value: '15', label: '>15% ROI', title: 'Require at least 15% Return on Investment (Profit ÷ Supply Cost)' },
-    { value: '50', label: '>50% ROI', title: 'Require high margin (>50% Return on Investment)' }
+    { value: '15', label: '≥15% ROI', title: 'Require at least 15% Return on Investment (Profit ÷ Supply Cost)' },
+    { value: '50', label: '≥50% ROI', title: 'Require high margin (≥50% Return on Investment)' }
   ];
 
   const minXpOptions = [
     { value: 'none', label: 'Any XP', title: 'Include methods granting any amount of XP' },
-    { value: '10k', label: '>10k/hr', title: 'Require at least 10,000 XP/hr' },
-    { value: '25k', label: '>25k/hr', title: 'Require at least 25,000 XP/hr' },
-    { value: '50k', label: '>50k/hr', title: 'Require at least 50,000 XP/hr' },
-    { value: '100k', label: '>100k/hr', title: 'Require at least 100,000 XP/hr' }
+    { value: '10k', label: '≥10k/hr', title: 'Require at least 10,000 XP/hr' },
+    { value: '25k', label: '≥25k/hr', title: 'Require at least 25,000 XP/hr' },
+    { value: '50k', label: '≥50k/hr', title: 'Require at least 50,000 XP/hr' },
+    { value: '100k', label: '≥100k/hr', title: 'Require at least 100,000 XP/hr' }
   ];
 
   const skillList = [

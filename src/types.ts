@@ -22,6 +22,13 @@ export interface XpGained {
   xp: number;
 }
 
+/**
+ * Sentinel ROI meaning "return on investment is undefined" — used when there is
+ * no supply input cost (division by zero) or financials have not been parsed yet.
+ * A method with a real input cost must never carry this value.
+ */
+export const ROI_UNAVAILABLE = 99999;
+
 /** Warning/financial data for a single MMG subpage */
 export interface SubpageWarning {
   hasWildernessWarning: boolean;

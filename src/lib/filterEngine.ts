@@ -22,7 +22,7 @@
  * This module is the single source of truth for all filter logic.
  */
 
-import type { FilterState, RowData, RowVerdict, SubpageWarning, IntensityFilter, BudgetFilter, RoiFilter, XpGained, XpSkillFilter, MinXpFilter } from '../types';
+import { ROI_UNAVAILABLE, type FilterState, type RowData, type RowVerdict, type SubpageWarning, type IntensityFilter, type BudgetFilter, type RoiFilter, type XpGained, type XpSkillFilter, type MinXpFilter } from '../types';
 import { WILDERNESS_DOM_KEYWORDS, RISKY_DOM_KEYWORDS } from './riskKeywords';
 
 /**
@@ -142,7 +142,7 @@ export function evaluateRow(
   if (!passesBudgetFilter(inputCost, filters.maxBudget)) reasons.push('budget');
 
   // 5. ROI
-  const roi = warning?.roi ?? 99999;
+  const roi = warning?.roi ?? ROI_UNAVAILABLE;
   if (!passesRoiFilter(roi, filters.minRoi)) reasons.push('roi');
 
   // 6. Stats

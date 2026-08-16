@@ -22,7 +22,7 @@
  * This is the bridge between our Svelte reactive world and the wiki's native DOM.
  */
 
-import type { SubpageWarning } from '../types';
+import { ROI_UNAVAILABLE, type SubpageWarning } from '../types';
 import { formatGp, formatXp, formatVolume } from './formatters';
 
 /**
@@ -44,7 +44,7 @@ export function renderChipsForCell(
 
   if (warning && (warning.finParsed || warning.inputCost > 0)) {
     const inputCost = warning.inputCost || 0;
-    const roi = warning.roi ?? 99999;
+    const roi = warning.roi ?? ROI_UNAVAILABLE;
     const outputVolume = warning.outputVolume ?? 0;
     const isCategoryAllowed = isRowCategoryVolumeApplicable(methodCell);
 
@@ -75,26 +75,33 @@ export function renderChipsForCell(
       const children = [volumeChip, xpChip, spacer, budgetChip].filter(Boolean) as HTMLElement[];
       chipContainer.replaceChildren(...children);
     } else {
-      const roiChip = createOrGet(chipContainer, '.osrs-chip-roi', 'span', '');
       const budgetChip = createOrGet(chipContainer, '.osrs-chip-budget', 'span', '');
       removeEl(chipContainer, '.osrs-chip-roi-spacer');
       removeEl(chipContainer, '.osrs-chip-loading');
 
-      // ROI chip
-      const roiText = `${roi}%`;
-      const inputFormatted = formatGp(inputCost);
-      if (roi >= 50) {
-        renderRoiChip(roiChip, 'osrs-chip-roi-high',
-          `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). High margin!`);
-      } else if (roi >= 15) {
-        renderRoiChip(roiChip, 'osrs-chip-roi-mod',
-          `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Moderate margin.`);
+      // ROI chip — skip entirely if ROI is the "undefined" sentinel (should only
+      // happen with a zero input cost, but guard here so it can never render as
+      // a bogus "99999% ROI" if the invariant is ever violated upstream).
+      let roiChip: HTMLElement | null = null;
+      if (roi < ROI_UNAVAILABLE) {
+        roiChip = createOrGet(chipContainer, '.osrs-chip-roi', 'span', '');
+        const roiText = `${roi}%`;
+        const inputFormatted = formatGp(inputCost);
+        if (roi >= 50) {
+          renderRoiChip(roiChip, 'osrs-chip-roi-high',
+            `${roiText} ROI`,
+            `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). High margin!`);
+        } else if (roi >= 15) {
+          renderRoiChip(roiChip, 'osrs-chip-roi-mod',
+            `${roiText} ROI`,
+            `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Moderate margin.`);
+        } else {
+          renderRoiChip(roiChip, 'osrs-chip-roi-low',
+            `${roiText} ROI`,
+            `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Thin margin!`);
+        }
       } else {
-        renderRoiChip(roiChip, 'osrs-chip-roi-low',
-          `${roiText} ROI`,
-          `Return on Investment (ROI): ${roiText} profit return relative to supply input cost (${inputFormatted} GP/hr input). Thin margin!`);
+        removeEl(chipContainer, '.osrs-chip-roi');
       }
 
       // Budget chip

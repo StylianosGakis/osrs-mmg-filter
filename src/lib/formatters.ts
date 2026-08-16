@@ -41,16 +41,16 @@ export const INTENSITY_LABELS: Record<string, string> = {
 
 /** Human-readable budget labels */
 export const BUDGET_LABELS: Record<string, string> = {
-  '100k': '< 100k GP',
-  '1m': '< 1M GP',
-  '5m': '< 5M GP',
-  '10m': '< 10M GP',
+  '100k': '≤ 100k GP',
+  '1m': '≤ 1M GP',
+  '5m': '≤ 5M GP',
+  '10m': '≤ 10M GP',
 };
 
 /** Human-readable ROI labels */
 export const ROI_LABELS: Record<string, string> = {
-  '15': '> 15% ROI',
-  '50': '> 50% ROI',
+  '15': '≥ 15% ROI',
+  '50': '≥ 50% ROI',
 };
 
 /** Format an XP number into a human-readable string (e.g. "129.6k XP", "1.2M XP") */
