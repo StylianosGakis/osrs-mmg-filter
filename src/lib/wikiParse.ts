@@ -220,7 +220,9 @@ export function parseMmgFinancialsFromHtml(
   return {
     inputCost: totalInput,
     grossOutput: totalOutput,
-    roi: Math.round(roi),
+    // Floor (not round) so the displayed ROI never overstates the true value:
+    // a method's real return is always at least what we show.
+    roi: Math.floor(roi),
     outputVolume
   };
 }

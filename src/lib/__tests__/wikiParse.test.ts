@@ -80,7 +80,8 @@ describe('parseMmgFinancialsFromHtml (fixtures)', () => {
     expect(fin).toEqual({
       inputCost: 315600,
       grossOutput: 1346760,
-      roi: 327,
+      // 1031160 / 315600 = 326.73%, floored so the displayed ROI never overstates
+      roi: 326,
       outputVolume: 500000,
     });
   });
