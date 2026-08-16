@@ -24,13 +24,12 @@
 /** Format a GP number into a human-readable string (e.g., "19.7M GP", "100k GP") */
 export function formatGp(num: number): string {
   if (!num || isNaN(num) || num <= 0) return '0 GP';
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M GP';
-  }
-  if (num >= 1_000) {
-    return (num / 1_000).toFixed(0) + 'k GP';
-  }
-  return num.toLocaleString() + ' GP';
+  if (num < 1_000) return num.toLocaleString() + ' GP';
+  // Round to whole thousands first; if that rounds up to 1000k, promote to M so
+  // we never render a misleading "1000k GP" for values just under 1M.
+  const k = Math.round(num / 1_000);
+  if (k < 1_000) return k + 'k GP';
+  return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M GP';
 }
 
 /** Human-readable intensity labels */
@@ -57,11 +56,20 @@ export const ROI_LABELS: Record<string, string> = {
 /** Format an XP number into a human-readable string (e.g. "129.6k XP", "1.2M XP") */
 export function formatXp(num: number): string {
   if (!num || isNaN(num) || num <= 0) return '0 XP';
-  if (num >= 1_000_000) {
-    return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M XP';
-  }
-  if (num >= 1_000) {
-    return (num / 1_000).toFixed(1).replace(/\.0$/, '') + 'k XP';
-  }
-  return num.toLocaleString() + ' XP';
+  if (num < 1_000) return num.toLocaleString() + ' XP';
+  // Round to one-decimal thousands first; if that rounds up to 1000k, promote to
+  // M so we never render a misleading "1000k XP" for values just under 1M.
+  const k = Math.round(num / 100) / 10;
+  if (k < 1_000) return k.toFixed(1).replace(/\.0$/, '') + 'k XP';
+  return (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'M XP';
+}
+
+/** Format a per-day GE trade volume into a human-readable string (e.g. "25k/d", "1.5M/d") */
+export function formatVolume(vol: number): string {
+  if (vol < 1_000) return `${vol}/d`;
+  // Round to whole thousands first; if that rounds up to 1000k, promote to M so
+  // we never render a misleading "1000k/d" for values just under 1M.
+  const k = Math.round(vol / 1_000);
+  if (k < 1_000) return `${k}k/d`;
+  return `${(vol / 1_000_000).toFixed(1)}M/d`;
 }

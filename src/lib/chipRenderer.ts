@@ -23,7 +23,7 @@
  */
 
 import type { SubpageWarning } from '../types';
-import { formatGp, formatXp } from './formatters';
+import { formatGp, formatXp, formatVolume } from './formatters';
 
 /**
  * Render ROI + Budget + XP chip badges into a method cell's chip container.
@@ -136,16 +136,6 @@ export function renderChipsForCell(
 }
 
 // ─── Internal Helpers ─────────────────────────────────────────
-
-function formatVolume(vol: number): string {
-  if (vol >= 1_000_000) {
-    return `${(vol / 1_000_000).toFixed(1)}M/d`;
-  }
-  if (vol >= 1_000) {
-    return `${Math.round(vol / 1_000)}k/d`;
-  }
-  return `${vol}/d`;
-}
 
 function renderVolumeChip(el: HTMLElement, volume: number): void {
   const isLow = volume < 25_000;
